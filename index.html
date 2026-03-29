@@ -549,6 +549,40 @@
         </div>
       </div>
 
+      <!-- Decay, Corruption & Infection — global dither modifiers -->
+      <div class="control-group" style="margin-top:8px;">
+        <label>Decay</label>
+        <div class="slider-row">
+          <input type="range" id="dither-decay" min="0" max="100" value="0">
+          <span class="slider-val" id="dither-decay-val">0%</span>
+        </div>
+        <div class="hint">Dots progressively fade toward background</div>
+      </div>
+      <div class="control-group">
+        <label>Corruption</label>
+        <div class="slider-row">
+          <input type="range" id="dither-corruption" min="0" max="100" value="0">
+          <span class="slider-val" id="dither-corruption-val">0%</span>
+        </div>
+        <div class="hint">Chance of glitched dots ignoring the algorithm</div>
+      </div>
+      <div class="control-group">
+        <label>Infection</label>
+        <div class="slider-row">
+          <input type="range" id="dither-infection" min="0" max="100" value="0">
+          <span class="slider-val" id="dither-infection-val">0%</span>
+        </div>
+        <div class="hint">Dots spread their value to neighbors</div>
+      </div>
+      <div class="control-group">
+        <label>Smear</label>
+        <div class="slider-row">
+          <input type="range" id="dither-smear" min="0" max="100" value="0">
+          <span class="slider-val" id="dither-smear-val">0%</span>
+        </div>
+        <div class="hint">Displaces dots along streaks, preserving tones</div>
+      </div>
+
       <!-- Pre-dither pixelate -->
       <div class="control-group" style="margin-top:8px;">
         <label class="effect-toggle"><input type="checkbox" id="pre-pixelate-enable"> Pre-dither Pixelate</label>
@@ -729,6 +763,10 @@ let serpentine = true;
 let diffusionStrength = 1.0;
 let halftoneSize = 6;
 let halftoneAngle = 45;
+let ditherDecay = 0;
+let ditherCorruption = 0;
+let ditherInfection = 0;
+let ditherSmear = 0;
 
 let prePixelateEnabled = false;
 let prePixelateSize = 8;
@@ -1146,17 +1184,161 @@ function ditherHalftone(gray, w, h, levels) {
 function applyDither(gray, w, h) {
   let levels = getPaletteLevels();
   let algo = currentAlgorithm;
+  let out;
 
-  if (algo === 'threshold') return ditherThreshold(gray, w, h, levels);
-  if (algo === 'random') return ditherRandom(gray, w, h, levels);
-  if (algo === 'bayer2') return ditherBayer(gray, w, h, levels, 2);
-  if (algo === 'bayer4') return ditherBayer(gray, w, h, levels, 4);
-  if (algo === 'bayer8') return ditherBayer(gray, w, h, levels, 8);
-  if (algo === 'bayer16') return ditherBayer(gray, w, h, levels, 16);
-  if (algo === 'blue-noise') return ditherBlueNoise(gray, w, h, levels);
-  if (algo === 'halftone') return ditherHalftone(gray, w, h, levels);
-  // Error diffusion
-  return ditherErrorDiffusion(gray, w, h, levels, algo);
+  if (algo === 'threshold') out = ditherThreshold(gray, w, h, levels);
+  else if (algo === 'random') out = ditherRandom(gray, w, h, levels);
+  else if (algo === 'bayer2') out = ditherBayer(gray, w, h, levels, 2);
+  else if (algo === 'bayer4') out = ditherBayer(gray, w, h, levels, 4);
+  else if (algo === 'bayer8') out = ditherBayer(gray, w, h, levels, 8);
+  else if (algo === 'bayer16') out = ditherBayer(gray, w, h, levels, 16);
+  else if (algo === 'blue-noise') out = ditherBlueNoise(gray, w, h, levels);
+  else if (algo === 'halftone') out = ditherHalftone(gray, w, h, levels);
+  else out = ditherErrorDiffusion(gray, w, h, levels, algo);
+
+  let decay = ditherDecay;
+  let corruption = ditherCorruption;
+  let infection = ditherInfection;
+  let smear = ditherSmear;
+  let n = w * h;
+  let numLevels = levels.length;
+
+  // Corruption: random palette index, ignoring the algorithm
+  if (corruption > 0) {
+    for (let i = 0; i < n; i++) {
+      if (xorshift128() < corruption) {
+        out[i] = (xorshift128() * numLevels) | 0;
+      }
+    }
+  }
+
+  // Infection: stamp-style tendrils that paint the source value along a path.
+  // Favors long travel over local fill — fewer triggers, fewer tendrils per
+  // source, but each one reaches far. At low values tendrils are sparse and
+  // thin; at high values the image is overtaken by long directional streaks.
+  if (infection > 0) {
+    let passes = 1 + ((infection * 4) | 0);            // 1 → 5 passes
+    let maxReach = 10 + ((infection * 300) | 0);       // 10px → 310px
+    let maxSpread = 1 + ((infection * 2) | 0);         // 1 → 3 tendrils (sparse)
+    let chance = 0.008 + infection * 0.09;             // 0.8% → ~10% trigger
+
+    for (let pass = 0; pass < passes; pass++) {
+      let yStart, yEnd, yStep;
+      if ((pass & 1) === 0) { yStart = 0; yEnd = h; yStep = 1; }
+      else { yStart = h - 1; yEnd = -1; yStep = -1; }
+
+      for (let y = yStart; y !== yEnd; y += yStep) {
+        let reverse = ((y + pass) & 1) === 1;
+        let xStart = reverse ? w - 1 : 0;
+        let xEnd = reverse ? -1 : w;
+        let xStep = reverse ? -1 : 1;
+
+        for (let x = xStart; x !== xEnd; x += xStep) {
+          if (xorshift128() >= chance) continue;
+          let val = out[y * w + x];
+          let spread = 1 + ((xorshift128() * maxSpread) | 0);
+
+          for (let s = 0; s < spread; s++) {
+            let r = xorshift128();
+            let dx, dy;
+            if (r < 0.30) { dx = xStep; dy = 0; }
+            else if (r < 0.50) { dx = xStep; dy = yStep; }
+            else if (r < 0.65) { dx = 0; dy = yStep; }
+            else if (r < 0.78) { dx = xStep; dy = -yStep; }
+            else { dx = xorshift128() < 0.5 ? -1 : 1; dy = xorshift128() < 0.5 ? -1 : 1; }
+
+            // Distance biased toward long: cbrt gives flatter distribution
+            let dist = 3 + ((Math.cbrt(xorshift128()) * maxReach) | 0);
+
+            let cx = x, cy = y;
+            for (let d = 0; d < dist; d++) {
+              cx += dx; cy += dy;
+              if (cx < 0 || cx >= w || cy < 0 || cy >= h) break;
+              out[cy * w + cx] = val;
+              if (xorshift128() < 0.25) {
+                dx += xorshift128() < 0.5 ? -1 : 1;
+                if (dx > 1) dx = 1; if (dx < -1) dx = -1;
+              }
+              if (xorshift128() < 0.25) {
+                dy += xorshift128() < 0.5 ? -1 : 1;
+                if (dy > 1) dy = 1; if (dy < -1) dy = -1;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Smear: displacement walk that shifts existing values along a path,
+  // preserving tonal variation. Creates streaky distortion without solid blobs.
+  if (smear > 0) {
+    let sm = smear * 0.2; // compress to subtle range (equivalent to old 0-20%)
+    let passes = 1 + ((sm * 4) | 0);
+    let maxReach = 4 + ((sm * 50) | 0);
+    let maxSpread = 1 + ((sm * 3) | 0);
+    let chance = 0.02 + sm * 0.18;
+
+    for (let pass = 0; pass < passes; pass++) {
+      let yStart, yEnd, yStep;
+      if ((pass & 1) === 0) { yStart = 0; yEnd = h; yStep = 1; }
+      else { yStart = h - 1; yEnd = -1; yStep = -1; }
+
+      for (let y = yStart; y !== yEnd; y += yStep) {
+        let reverse = ((y + pass) & 1) === 1;
+        let xStart = reverse ? w - 1 : 0;
+        let xEnd = reverse ? -1 : w;
+        let xStep = reverse ? -1 : 1;
+
+        for (let x = xStart; x !== xEnd; x += xStep) {
+          if (xorshift128() >= chance) continue;
+          let spread = 1 + ((xorshift128() * maxSpread) | 0);
+
+          for (let s = 0; s < spread; s++) {
+            let r = xorshift128();
+            let dx, dy;
+            if (r < 0.30) { dx = xStep; dy = 0; }
+            else if (r < 0.50) { dx = xStep; dy = yStep; }
+            else if (r < 0.65) { dx = 0; dy = yStep; }
+            else if (r < 0.78) { dx = xStep; dy = -yStep; }
+            else { dx = xorshift128() < 0.5 ? -1 : 1; dy = xorshift128() < 0.5 ? -1 : 1; }
+
+            let dist = 1 + ((Math.cbrt(xorshift128()) * maxReach) | 0);
+
+            let cx = x, cy = y;
+            let carried = out[y * w + x];
+            for (let d = 0; d < dist; d++) {
+              cx += dx; cy += dy;
+              if (cx < 0 || cx >= w || cy < 0 || cy >= h) break;
+              let pos = cy * w + cx;
+              let existing = out[pos];
+              out[pos] = carried;
+              carried = existing;
+              if (xorshift128() < 0.25) {
+                dx += xorshift128() < 0.5 ? -1 : 1;
+                if (dx > 1) dx = 1; if (dx < -1) dx = -1;
+              }
+              if (xorshift128() < 0.25) {
+                dy += xorshift128() < 0.5 ? -1 : 1;
+                if (dy > 1) dy = 1; if (dy < -1) dy = -1;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Decay: dots descend one index toward background (progressive fade)
+  if (decay > 0) {
+    for (let i = 0; i < n; i++) {
+      if (out[i] > 0 && xorshift128() < decay) {
+        out[i]--;
+      }
+    }
+  }
+
+  return out;
 }
 
 // ========================================================
@@ -2342,6 +2524,19 @@ function randomize() {
     document.getElementById('diffusion-strength').value = Math.round(diffusionStrength * 100);
     document.getElementById('diffusion-strength-val').textContent = Math.round(diffusionStrength * 100) + '%';
 
+    ditherDecay = Math.random() > 0.6 ? Math.random() * 0.4 : 0;
+    document.getElementById('dither-decay').value = Math.round(ditherDecay * 100);
+    document.getElementById('dither-decay-val').textContent = Math.round(ditherDecay * 100) + '%';
+    ditherCorruption = Math.random() > 0.7 ? Math.random() * 0.3 : 0;
+    document.getElementById('dither-corruption').value = Math.round(ditherCorruption * 100);
+    document.getElementById('dither-corruption-val').textContent = Math.round(ditherCorruption * 100) + '%';
+    ditherInfection = Math.random() > 0.7 ? Math.random() * 0.4 : 0;
+    document.getElementById('dither-infection').value = Math.round(ditherInfection * 100);
+    document.getElementById('dither-infection-val').textContent = Math.round(ditherInfection * 100) + '%';
+    ditherSmear = Math.random() > 0.7 ? Math.random() * 0.5 : 0;
+    document.getElementById('dither-smear').value = Math.round(ditherSmear * 100);
+    document.getElementById('dither-smear-val').textContent = Math.round(ditherSmear * 100) + '%';
+
     prePixelateEnabled = Math.random() > 0.7;
     document.getElementById('pre-pixelate-enable').checked = prePixelateEnabled;
     document.getElementById('pre-pixelate-params').style.display = prePixelateEnabled ? '' : 'none';
@@ -2501,6 +2696,19 @@ function loadBuiltinPreset(name) {
   if (preset.halftoneAngle !== undefined) { halftoneAngle = preset.halftoneAngle; document.getElementById('halftone-angle').value = halftoneAngle; document.getElementById('halftone-angle-val').textContent = halftoneAngle + '\u00B0'; }
   if (preset.serpentine !== undefined) { serpentine = preset.serpentine; document.getElementById('serpentine').checked = serpentine; }
   if (preset.diffusionStrength !== undefined) { diffusionStrength = preset.diffusionStrength; document.getElementById('diffusion-strength').value = Math.round(diffusionStrength * 100); document.getElementById('diffusion-strength-val').textContent = Math.round(diffusionStrength * 100) + '%'; }
+  // Reset decay/corruption/infection for built-in presets (they can override if needed)
+  ditherDecay = preset.ditherDecay || 0;
+  ditherCorruption = preset.ditherCorruption || 0;
+  ditherInfection = preset.ditherInfection || 0;
+  ditherSmear = preset.ditherSmear || 0;
+  document.getElementById('dither-decay').value = Math.round(ditherDecay * 100);
+  document.getElementById('dither-decay-val').textContent = Math.round(ditherDecay * 100) + '%';
+  document.getElementById('dither-corruption').value = Math.round(ditherCorruption * 100);
+  document.getElementById('dither-corruption-val').textContent = Math.round(ditherCorruption * 100) + '%';
+  document.getElementById('dither-infection').value = Math.round(ditherInfection * 100);
+  document.getElementById('dither-infection-val').textContent = Math.round(ditherInfection * 100) + '%';
+  document.getElementById('dither-smear').value = Math.round(ditherSmear * 100);
+  document.getElementById('dither-smear-val').textContent = Math.round(ditherSmear * 100) + '%';
 
   colorMode = preset.colorMode;
   markColorsDirty();
@@ -2552,6 +2760,7 @@ function captureState() {
   return {
     algorithm: currentAlgorithm, thresholdVal, randomAmount,
     serpentine, diffusionStrength, halftoneSize, halftoneAngle,
+    ditherDecay, ditherCorruption, ditherInfection, ditherSmear,
     prePixelateEnabled, prePixelateSize,
     colorMode, fgColor: [...fgColor], bgColor: [...bgColor],
     currentPalettePreset,
@@ -2570,6 +2779,10 @@ function restoreState(state) {
   diffusionStrength = state.diffusionStrength || 1.0;
   halftoneSize = state.halftoneSize || 6;
   halftoneAngle = state.halftoneAngle || 45;
+  ditherDecay = state.ditherDecay || 0;
+  ditherCorruption = state.ditherCorruption || 0;
+  ditherInfection = state.ditherInfection || 0;
+  ditherSmear = state.ditherSmear || 0;
   prePixelateEnabled = state.prePixelateEnabled || false;
   prePixelateSize = state.prePixelateSize || 8;
   colorMode = state.colorMode || 'bw';
@@ -2603,6 +2816,14 @@ function restoreState(state) {
   document.getElementById('halftone-size-val').textContent = halftoneSize;
   document.getElementById('halftone-angle').value = halftoneAngle;
   document.getElementById('halftone-angle-val').textContent = halftoneAngle + '\u00B0';
+  document.getElementById('dither-decay').value = Math.round(ditherDecay * 100);
+  document.getElementById('dither-decay-val').textContent = Math.round(ditherDecay * 100) + '%';
+  document.getElementById('dither-corruption').value = Math.round(ditherCorruption * 100);
+  document.getElementById('dither-corruption-val').textContent = Math.round(ditherCorruption * 100) + '%';
+  document.getElementById('dither-infection').value = Math.round(ditherInfection * 100);
+  document.getElementById('dither-infection-val').textContent = Math.round(ditherInfection * 100) + '%';
+  document.getElementById('dither-smear').value = Math.round(ditherSmear * 100);
+  document.getElementById('dither-smear-val').textContent = Math.round(ditherSmear * 100) + '%';
   document.getElementById('pre-pixelate-enable').checked = prePixelateEnabled;
   document.getElementById('pre-pixelate-params').style.display = prePixelateEnabled ? '' : 'none';
   document.getElementById('pre-pixelate-size').value = prePixelateSize;
@@ -3333,6 +3554,30 @@ function setup() {
   document.getElementById('halftone-angle').addEventListener('input', function() {
     halftoneAngle = parseInt(this.value);
     document.getElementById('halftone-angle-val').textContent = halftoneAngle + '\u00B0';
+    scheduleRender();
+  });
+
+  document.getElementById('dither-decay').addEventListener('input', function() {
+    ditherDecay = parseInt(this.value) / 100;
+    document.getElementById('dither-decay-val').textContent = this.value + '%';
+    scheduleRender();
+  });
+
+  document.getElementById('dither-corruption').addEventListener('input', function() {
+    ditherCorruption = parseInt(this.value) / 100;
+    document.getElementById('dither-corruption-val').textContent = this.value + '%';
+    scheduleRender();
+  });
+
+  document.getElementById('dither-infection').addEventListener('input', function() {
+    ditherInfection = parseInt(this.value) / 100;
+    document.getElementById('dither-infection-val').textContent = this.value + '%';
+    scheduleRender();
+  });
+
+  document.getElementById('dither-smear').addEventListener('input', function() {
+    ditherSmear = parseInt(this.value) / 100;
+    document.getElementById('dither-smear-val').textContent = this.value + '%';
     scheduleRender();
   });
 
