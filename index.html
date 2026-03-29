@@ -1,0 +1,3459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dither Playground</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #00ff8855; border-radius: 3px; transition: background 0.3s; }
+    ::-webkit-scrollbar-thumb:hover { background: #00ff88aa; }
+    @supports not selector(::-webkit-scrollbar) {
+      * { scrollbar-width: thin; scrollbar-color: #00ff8833 transparent; }
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0612;
+      color: #d0d8e8;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #sidebar {
+      width: 370px;
+      min-width: 370px;
+      background: #110b1f;
+      padding: 20px;
+      overflow-y: auto;
+      border-right: 1px solid #00ff8844;
+      box-shadow: 1px 0 12px #00ff8818;
+    }
+    #sidebar h1 {
+      font-size: 1.3em; margin-bottom: 4px;
+      background: linear-gradient(90deg, #00ff88, #00e5ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    #sidebar .subtitle { font-size: 0.8em; color: #5a6a80; margin-bottom: 16px; }
+    .control-group { margin-bottom: 14px; }
+    .control-group label { display: block; font-size: 0.85em; color: #00e5ff; margin-bottom: 3px; }
+    .control-group .hint { font-size: 0.72em; color: #4a5568; margin-top: 2px; }
+    input[type="number"], input[type="text"], select, textarea {
+      width: 100%; padding: 6px 10px; background: #1a0f2e88;
+      border: 1px solid #ffffff12; color: #d0d8e8; border-radius: 4px; font-size: 0.9em;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    input[type="number"]:focus, input[type="text"]:focus, select:focus, textarea:focus {
+      outline: none; border-color: #00ff8888; box-shadow: 0 0 6px #00ff8833;
+    }
+    textarea {
+      font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85em;
+      resize: vertical; min-height: 44px;
+    }
+    input[type="range"] { width: 100%; accent-color: #00ff88; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none; appearance: none; margin: 0;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+    .num-spin { position: relative; display: inline-flex; align-items: center; }
+    .num-spin input[type="number"] { padding-right: 20px; }
+    .num-spin .spin-btns {
+      position: absolute; right: 1px; top: 1px; bottom: 1px;
+      display: flex; flex-direction: column; width: 18px;
+      border-left: 1px solid #00ff8822; border-radius: 0 3px 3px 0;
+      overflow: hidden;
+    }
+    .num-spin .spin-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      color: #00ff8855; font-size: 0.45em; cursor: pointer; user-select: none;
+      border: none; padding: 0; margin: 0; line-height: 1;
+      transition: background 0.15s, color 0.15s;
+    }
+    .num-spin .spin-btn:hover {
+      background: linear-gradient(135deg, #0d2a1acc, #0a1f2ecc);
+      color: #00e5ff;
+    }
+    .num-spin .spin-btn:first-child { border-bottom: 1px solid #00ff8811; }
+    .select-spin { position: relative; display: flex; align-items: stretch; width: 100%; }
+    .select-spin select {
+      -webkit-appearance: none; appearance: none;
+      flex: 1; min-width: 0;
+      padding-right: 38px;
+      background-image: none;
+    }
+    .select-spin .spin-btns {
+      position: absolute; right: 17px; top: 1px; bottom: 1px;
+      display: flex; flex-direction: column; width: 16px;
+      border-left: 1px solid #00ff8811;
+      overflow: hidden; z-index: 2;
+    }
+    .select-spin .spin-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      color: #00ff8855; font-size: 0.45em; cursor: pointer; user-select: none;
+      border: none; padding: 0; margin: 0; line-height: 1;
+      transition: background 0.15s, color 0.15s;
+    }
+    .select-spin .spin-btn:hover {
+      background: linear-gradient(135deg, #0d2a1acc, #0a1f2ecc);
+      color: #00e5ff;
+    }
+    .select-spin .spin-btn:first-child { border-bottom: 1px solid #00ff8811; }
+    .select-spin .select-arrow {
+      position: absolute; right: 1px; top: 1px; bottom: 1px;
+      width: 16px; display: flex; align-items: center; justify-content: center;
+      pointer-events: none; color: #00ff88aa; font-size: 0.65em;
+      background: linear-gradient(135deg, #0d2a1a88, #0a1f2e88);
+      border-left: 1px solid #00ff8822; border-radius: 0 3px 3px 0;
+    }
+    .select-spin.compact select { padding-right: 34px; }
+    .select-spin.compact .spin-btns { right: 15px; width: 16px; }
+    .select-spin.compact .select-arrow { width: 14px; }
+    .row { display: flex; gap: 10px; }
+    .row .control-group { flex: 1; }
+    button {
+      padding: 8px 16px; background: linear-gradient(135deg, #0d2a1a88, #0a1f2e88); color: #00ff88; border: 1px solid #00ff8844;
+      border-radius: 4px; cursor: pointer; font-size: 0.9em; margin-right: 6px; margin-bottom: 6px;
+      font-weight: 600; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 0 8px #00ff8808, inset 0 1px 0 #ffffff08;
+    }
+    button:hover { background: linear-gradient(135deg, #0d2a1acc, #0a1f2ecc); border-color: #00ff8888; color: #aaffcc; box-shadow: 0 0 12px #00ff8818, inset 0 1px 0 #ffffff10; }
+    button.primary {
+      background: linear-gradient(135deg, #00ff8818, #00e5ff12, #00ff8810);
+      border: 1px solid #00ff8855; color: #00ff88;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 0 10px #00ff8810, inset 0 1px 0 #ffffff0a;
+    }
+    button.primary:hover {
+      background: linear-gradient(135deg, #00ff8830, #00e5ff22, #00ff8820);
+      border-color: #00ff8888; color: #aaffcc;
+      box-shadow: 0 0 16px #00ff8820, inset 0 1px 0 #ffffff12;
+    }
+    button.randomize-btn {
+      background: linear-gradient(135deg, #00ff8830, #00e5ff20, #a855f71a, #00e5ff20, #00ff8830);
+      border: 1px solid #00ff8877; color: #00ff88;
+      text-shadow: 0 0 10px #00ff8855, 0 0 20px #00ff8822;
+      box-shadow: 0 0 14px #00ff8820, 0 0 28px #00e5ff10, 0 0 4px #00ff8830 inset, inset 0 1px 0 #ffffff10;
+      position: relative; overflow: hidden; letter-spacing: 0.5px;
+    }
+    button.randomize-btn:hover {
+      background: linear-gradient(135deg, #00ff8845, #00e5ff35, #a855f728, #00e5ff35, #00ff8845);
+      border-color: #00ff88bb; color: #ccffdd;
+      text-shadow: 0 0 14px #00ff8888, 0 0 28px #00ff8833;
+      box-shadow: 0 0 22px #00ff8830, 0 0 44px #00e5ff18, 0 0 6px #00ff8840 inset, inset 0 1px 0 #ffffff18;
+    }
+    .sparkle { position: absolute; pointer-events: none; z-index: 5; filter: drop-shadow(0 0 4px currentColor); }
+    @keyframes label-pop {
+      0% { transform: scale(1); }
+      25% { transform: scale(1.12); }
+      55% { transform: scale(0.96); }
+      100% { transform: scale(1); }
+    }
+    .randomize-btn .btn-label { display: inline-block; transition: transform 0.1s ease; }
+    .randomize-btn .btn-label.pop { animation: label-pop 0.4s ease-out; }
+    .randomize-btn:active .btn-label, .randomize-btn.pressed .btn-label { transform: scale(0.92); }
+    .randomize-btn:active, .randomize-btn.pressed { filter: brightness(0.65); }
+    .randomize-btn { transition: filter 0.1s ease; }
+    @keyframes btn-flash {
+      0% { filter: brightness(1); }
+      20% { filter: brightness(1.6); }
+      100% { filter: brightness(1); }
+    }
+    .randomize-btn.flash { animation: btn-flash 0.4s ease-out; }
+    button.secondary {
+      background: linear-gradient(135deg, #1a0f3088, #0d1b2a88); border: 1px solid #00e5ff33; color: #00e5ff;
+      font-weight: normal; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 0 8px #00e5ff08, inset 0 1px 0 #ffffff08;
+    }
+    button.secondary:hover { background: linear-gradient(135deg, #1a0f30cc, #0d1b2acc); border-color: #00e5ff66; box-shadow: 0 0 12px #00e5ff18, inset 0 1px 0 #ffffff10; color: #66ffee; }
+    #canvas-container {
+      flex: 1; display: flex; align-items: center; justify-content: center; background: #050208;
+    }
+    canvas { display: block; }
+    .info-box {
+      background: linear-gradient(135deg, #1a0f3044, #0d1b2a44); border: 1px solid #ffffff10; border-radius: 4px; padding: 8px 10px;
+      margin-bottom: 14px; font-size: 0.78em; line-height: 1.5;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: inset 0 1px 0 #ffffff06;
+    }
+    .info-box code { color: #00ff88; }
+    #status { font-size: 0.78em; color: #5a6a80; margin-top: 6px; }
+    .preset-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .preset-grid button { font-size: 0.75em; padding: 4px 8px; margin: 0; }
+    details.collapsible { margin-top: 10px; }
+    details.collapsible > summary {
+      font-size: 0.9em; color: #00ff88; cursor: pointer;
+      border-bottom: 1px solid #2a154888; padding-bottom: 3px;
+      margin-bottom: 6px; list-style: none;
+      user-select: none; display: flex; align-items: center; gap: 6px;
+    }
+    details.collapsible > summary::-webkit-details-marker { display: none; }
+    details.collapsible > summary::before {
+      content: '\25B6'; font-size: 0.65em; transition: transform 0.15s;
+      display: inline-block; width: 10px;
+    }
+    details.collapsible[open] > summary::before { transform: rotate(90deg); }
+    details.collapsible > summary:hover { color: #66ffbb; }
+    .source-tabs {
+      display: flex; gap: 0; margin-bottom: 14px; border-radius: 6px;
+      overflow: hidden; border: 1px solid #ffffff15;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    .source-tab {
+      flex: 1; padding: 8px 4px; text-align: center; font-size: 0.85em; cursor: pointer;
+      background: #ffffff08; color: #5a6a80; border: none; border-radius: 0; margin: 0; transition: all 0.15s;
+    }
+    .source-tab:hover { background: #ffffff14; color: #00e5ff; }
+    .source-tab.active { background: #00ff8830; color: #00ff88; font-weight: 600; border-bottom: 2px solid #00ff88; }
+    .source-panel { display: none; }
+    .source-panel.active { display: block; }
+    .drop-zone {
+      border: 2px dashed #00ff8844; border-radius: 6px; padding: 20px; text-align: center;
+      color: #5a6a80; font-size: 0.82em; cursor: pointer; transition: all 0.2s;
+      background: #ffffff04;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #00ff88aa; background: #00ff8808; color: #00e5ff; }
+    .media-controls {
+      display: flex; gap: 6px; align-items: center; margin-top: 8px;
+    }
+    .media-controls button { padding: 5px 12px; font-size: 0.85em; margin: 0; }
+    .media-controls input[type="range"] { flex: 1; }
+    .media-controls span { font-size: 0.75em; color: #5a6a80; min-width: 48px; text-align: right; }
+    .color-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .color-row label { font-size: 0.82em; color: #00e5ff; min-width: 60px; }
+    .color-row input[type="color"] {
+      width: 36px; height: 28px; padding: 0; border: 1px solid #ffffff12;
+      background: #ffffff08; cursor: pointer; border-radius: 3px;
+    }
+    .palette-row {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
+    }
+    .palette-row input[type="color"] {
+      width: 32px; height: 28px; padding: 0; border: 1px solid #ffffff12;
+      background: #ffffff08; cursor: pointer; border-radius: 3px;
+    }
+    .effect-toggle {
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    @keyframes rec-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .rec-indicator {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #ff3333; margin-right: 6px;
+      animation: rec-blink 1s ease-in-out infinite;
+    }
+    .fps-display { font-family: monospace; font-size: 0.78em; color: #5a6a80; }
+    .user-preset-row {
+      display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+      font-size: 0.8em; padding: 4px 6px; background: linear-gradient(135deg, #1a0f3044, #0d1b2a44);
+      border: 1px solid #ffffff12; border-radius: 4px; cursor: pointer;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      box-shadow: inset 0 1px 0 #ffffff06;
+    }
+    .user-preset-row:hover { background: linear-gradient(135deg, #0d2a1a66, #0a1f2e66); border-color: #00ff8833; }
+    .user-preset-row .preset-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-preset-row .preset-del {
+      padding: 1px 5px; font-size: 0.7em; margin: 0; background: linear-gradient(135deg, #1a0f3044, #0d1b2a44);
+      border: 1px solid #ffffff12; color: #5a6a80; cursor: pointer; border-radius: 3px;
+    }
+    .user-preset-row .preset-del:hover { background: linear-gradient(135deg, #2a0f1866, #1b0d1566); color: #ff6688; border-color: #ff336666; }
+    #user-preset-list { max-height: 200px; overflow-y: auto; margin-bottom: 6px; }
+    .rand-toggle {
+      font-size: 0.72em; color: #5a6a80; font-weight: normal;
+      display: inline-flex; align-items: center; gap: 3px; cursor: pointer;
+      margin-left: auto; float: right;
+    }
+    input[type="checkbox"] {
+      -webkit-appearance: none; appearance: none; margin: 0; cursor: pointer;
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #3a4a60; background: transparent;
+      transition: all 0.2s ease; position: relative;
+      flex-shrink: 0; vertical-align: middle;
+    }
+    input[type="checkbox"]:checked { border-color: #00ff88; background: transparent; }
+    input[type="checkbox"]:checked::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #00ff88; box-shadow: 0 0 6px #00ff8880;
+    }
+    input[type="checkbox"]:hover { border-color: #00e5ff; }
+    .rand-toggle:hover { color: #00e5ff; }
+    .share-box {
+      width: 100%; padding: 4px 6px; font-size: 0.72em; font-family: monospace;
+      background: #ffffff06; color: #00e5ff; border: 1px solid #ffffff10;
+      border-radius: 3px; resize: vertical; min-height: 36px;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    #export-progress { font-size: 0.78em; color: #00e5ff; }
+    #export-progress progress {
+      width: 100%; height: 14px; margin-top: 3px;
+      appearance: none; -webkit-appearance: none;
+      border-radius: 3px; overflow: hidden;
+      background: #ffffff08; border: 1px solid #ffffff10;
+    }
+    #export-progress progress::-webkit-progress-bar { background: #ffffff08; }
+    #export-progress progress::-webkit-progress-value { background: linear-gradient(90deg, #00ff88, #00e5ff); }
+    #export-progress progress::-moz-progress-bar { background: linear-gradient(90deg, #00ff88, #00e5ff); }
+    .capture-bar {
+      display: flex; align-items: center; gap: 6px; padding: 8px 0; margin-bottom: 8px;
+      border-bottom: 1px solid #ffffff0a;
+    }
+    .capture-btn {
+      padding: 6px 14px; font-size: 0.88em; border-radius: 4px; cursor: pointer;
+      border: 1px solid #ffffff15; background: #ffffff08; color: #d0d8e8;
+      display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s;
+    }
+    .capture-btn:hover { background: #ffffff14; border-color: #ffffff25; }
+    .rec-btn { }
+    .rec-btn.recording {
+      background: #ff222218; border-color: #ff444466; color: #ff6666;
+      box-shadow: 0 0 8px #ff222233;
+    }
+    .rec-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #cc3333;
+    }
+    .rec-btn.recording .rec-dot {
+      animation: rec-blink 1s ease-in-out infinite;
+    }
+    .snap-btn { font-size: 0.85em; }
+    .snap-btn.active { border-color: #00ff88; color: #00ff88; background: #00ff8818; }
+    .playback-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px;
+      padding: 6px 0; border-top: 1px solid #ffffff0a;
+    }
+    .playback-seek-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+    .playback-seek-row input[type="range"] { flex: 1; }
+    .playback-seek-row button { padding: 3px 8px; font-size: 0.78em; margin: 0; }
+    .playback-bottom-row { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; }
+    .playback-bottom-row span { font-size: 0.75em; color: #5a6a80; }
+    .playback-bottom-row button.play-btn { padding: 4px 18px; font-size: 1.1em; margin: 0; }
+    .playback-bottom-row button.discard-btn { padding: 3px 8px; font-size: 0.78em; margin: 0; }
+    .slider-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .slider-row input[type="range"] { flex: 1; }
+    .slider-row .slider-val { font-size: 0.78em; color: #5a6a80; min-width: 32px; text-align: right; }
+    /* Effect stack styles */
+    .fx-row {
+      margin-bottom: 4px; padding: 0; background: rgba(0,255,136,0.03);
+      border-radius: 6px; border: 1px solid rgba(0,255,136,0.10);
+    }
+    .fx-row.dragging { opacity: 0.5; }
+    .fx-header {
+      display: flex; align-items: center; gap: 0; cursor: pointer; user-select: none;
+      padding: 6px 8px;
+    }
+    .fx-header .fx-arrow {
+      font-size: 0.6em; color: #5a6a80; width: 14px; text-align: center;
+      transition: transform 0.15s;
+    }
+    .fx-row.fx-open .fx-header .fx-arrow { transform: rotate(90deg); }
+    .fx-header .effect-toggle { flex: 1; font-size: 0.86em; color: #00ff88; }
+    .fx-header .fx-order { font-size: 0.65em; color: #5a6a80; margin-right: 4px; }
+    .fx-header .layer-drag-handle {
+      cursor: grab; color: #5a6a80; font-size: 0.82em; padding: 2px 4px;
+      transition: color 0.15s; touch-action: none;
+    }
+    .fx-header .layer-drag-handle:hover { color: #00ff88; }
+    .fx-params {
+      display: none; padding: 2px 12px 8px 28px;
+    }
+    .fx-row.fx-open .fx-params { display: block; }
+    .layer-drop-indicator {
+      height: 2px; background: #00ff88; border-radius: 1px; margin: 2px 0;
+      box-shadow: 0 0 6px #00ff8880;
+    }
+    /* Ramp / palette stop editor */
+    .ramp-preview {
+      width: 100%; height: 20px; border-radius: 4px; margin: 6px 0;
+      border: 1px solid #ffffff12;
+    }
+    .ramp-stop-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+    }
+    .ramp-stop-row input[type="number"] {
+      width: 56px; padding: 3px 4px; font-size: 0.78em;
+    }
+    .ramp-stop-row input[type="color"] {
+      width: 32px; height: 24px; padding: 0; border: 1px solid #ffffff12;
+      background: #ffffff08; cursor: pointer; border-radius: 3px;
+    }
+    .ramp-stop-row button {
+      padding: 1px 6px; font-size: 0.7em; margin: 0; background: #ffffff08;
+      border: 1px solid #ffffff12; color: #5a6a80; cursor: pointer; border-radius: 3px;
+    }
+    .ramp-stop-row button:hover { color: #ff6688; border-color: #ff336666; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h1>Dither Playground</h1>
+    <div class="subtitle">Image dithering algorithms &amp; retro effects</div>
+
+    <button class="primary randomize-btn" id="main-randomize-btn" onmousedown="randomizeBtnDown(this)" onmouseup="randomizeBtnUp(this)" onmouseleave="randomizeBtnCancel(this)" style="width:100%; padding:12px; font-size:1.05em; margin-bottom:10px;"><span class="btn-label">&#10024; Randomize &#10024;</span></button>
+
+    <!-- ==================== INPUT SOURCE ==================== -->
+    <details class="collapsible" open>
+      <summary>Input Source</summary>
+      <div class="source-tabs">
+        <button class="source-tab active" data-source="webcam" onclick="switchSource('webcam')">Webcam</button>
+        <button class="source-tab" data-source="image" onclick="switchSource('image')">Image</button>
+        <button class="source-tab" data-source="video" onclick="switchSource('video')">Video</button>
+      </div>
+
+      <div id="capture-controls" class="capture-bar">
+        <button id="record-btn" class="capture-btn rec-btn" onclick="toggleRecording()"><span class="rec-dot"></span> REC</button>
+        <button id="snapshot-btn" class="capture-btn snap-btn" onclick="takeSnapshot()">&#128247; Snap</button>
+        <span id="rec-timer" style="display:none; font-size:0.78em; color:#ff4444; font-family:monospace;"></span>
+        <span id="rec-frame-count" style="display:none; font-size:0.72em; color:#5a6a80;"></span>
+      </div>
+      <div id="playback-controls" class="playback-bar" style="display:none;">
+        <div class="playback-seek-row">
+          <button onclick="playbackStep(-1)">&#9664;</button>
+          <input type="range" id="playback-seek" min="0" max="0" value="0" step="1">
+          <button onclick="playbackStep(1)">&#9654;</button>
+        </div>
+        <div class="playback-bottom-row">
+          <span id="playback-info">0 / 0</span>
+          <button id="playback-play-btn" class="play-btn" onclick="togglePlaybackLoop()">&#9654;</button>
+          <button class="discard-btn" onclick="clearPlayback()" title="Discard recording" style="color:#ff6666;">&#10005;</button>
+        </div>
+      </div>
+
+      <div id="panel-webcam" class="source-panel active">
+        <div class="control-group">
+          <button id="webcam-toggle-btn" class="primary" onclick="toggleWebcam()" style="width:100%; margin:0;">Start Webcam</button>
+        </div>
+        <div class="control-group">
+          <label>Camera</label>
+          <select id="webcam-device"></select>
+        </div>
+        <div class="control-group">
+          <label class="effect-toggle"><input type="checkbox" id="webcam-mirror" checked> Mirror</label>
+        </div>
+      </div>
+
+      <div id="panel-image" class="source-panel">
+        <div class="drop-zone" id="image-drop" onclick="document.getElementById('image-file').click()">
+          Drop an image here or click to browse
+        </div>
+        <input type="file" id="image-file" accept="image/*" style="display:none;">
+        <div id="image-info" class="hint" style="margin-top:4px;"></div>
+      </div>
+
+      <div id="panel-video" class="source-panel">
+        <div class="drop-zone" id="video-drop" onclick="document.getElementById('video-file').click()">
+          Drop a video here or click to browse
+        </div>
+        <input type="file" id="video-file" accept="video/*" style="display:none;">
+        <div id="video-controls" class="media-controls" style="display:none;">
+          <button id="video-play-btn" onclick="toggleVideoPlay()">&#9654;</button>
+          <input type="range" id="video-seek" min="0" max="100" value="0" step="0.1">
+          <span id="video-time">0:00</span>
+        </div>
+      </div>
+    </details>
+
+    <!-- ==================== DITHER ALGORITHM ==================== -->
+    <details class="collapsible" open>
+      <summary>Dither Algorithm
+        <label class="rand-toggle"><input type="checkbox" id="rand-algo" checked> rand</label>
+      </summary>
+
+      <div class="control-group">
+        <label>Algorithm</label>
+        <select id="algo-select">
+          <optgroup label="Threshold">
+            <option value="threshold">Simple Threshold</option>
+            <option value="random">Random Dithering</option>
+          </optgroup>
+          <optgroup label="Ordered">
+            <option value="bayer2">Bayer 2x2</option>
+            <option value="bayer4">Bayer 4x4</option>
+            <option value="bayer8" selected>Bayer 8x8</option>
+            <option value="bayer16">Bayer 16x16</option>
+          </optgroup>
+          <optgroup label="Error Diffusion">
+            <option value="floyd-steinberg">Floyd-Steinberg</option>
+            <option value="jarvis">Jarvis-Judice-Ninke</option>
+            <option value="stucki">Stucki</option>
+            <option value="atkinson">Atkinson</option>
+            <option value="burkes">Burkes</option>
+            <option value="sierra3">Sierra (3-row)</option>
+            <option value="sierra2">Sierra Two-Row</option>
+            <option value="sierra-lite">Sierra Lite</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="blue-noise">Blue Noise</option>
+            <option value="halftone">Halftone</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Algorithm-specific params -->
+      <div id="params-threshold" class="algo-params" style="display:none;">
+        <div class="control-group">
+          <label>Threshold</label>
+          <div class="slider-row">
+            <input type="range" id="threshold-slider" min="0" max="255" value="128">
+            <span class="slider-val" id="threshold-val">128</span>
+          </div>
+        </div>
+      </div>
+      <div id="params-random" class="algo-params" style="display:none;">
+        <div class="control-group">
+          <label>Noise Amount</label>
+          <div class="slider-row">
+            <input type="range" id="random-amount" min="0" max="255" value="128">
+            <span class="slider-val" id="random-amount-val">128</span>
+          </div>
+        </div>
+      </div>
+      <div id="params-error-diffusion" class="algo-params" style="display:none;">
+        <div class="control-group">
+          <label class="effect-toggle"><input type="checkbox" id="serpentine" checked> Serpentine scanning</label>
+        </div>
+        <div class="control-group">
+          <label>Diffusion Strength</label>
+          <div class="slider-row">
+            <input type="range" id="diffusion-strength" min="0" max="100" value="100">
+            <span class="slider-val" id="diffusion-strength-val">100%</span>
+          </div>
+        </div>
+      </div>
+      <div id="params-halftone" class="algo-params" style="display:none;">
+        <div class="control-group">
+          <label>Dot Size</label>
+          <div class="slider-row">
+            <input type="range" id="halftone-size" min="2" max="20" value="6">
+            <span class="slider-val" id="halftone-size-val">6</span>
+          </div>
+        </div>
+        <div class="control-group">
+          <label>Angle</label>
+          <div class="slider-row">
+            <input type="range" id="halftone-angle" min="0" max="180" value="45">
+            <span class="slider-val" id="halftone-angle-val">45&deg;</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pre-dither pixelate -->
+      <div class="control-group" style="margin-top:8px;">
+        <label class="effect-toggle"><input type="checkbox" id="pre-pixelate-enable"> Pre-dither Pixelate</label>
+        <div id="pre-pixelate-params" style="display:none; margin-top:4px;">
+          <div class="slider-row">
+            <input type="range" id="pre-pixelate-size" min="2" max="64" value="8">
+            <span class="slider-val" id="pre-pixelate-size-val">8px</span>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ==================== COLOR MODE ==================== -->
+    <details class="collapsible" open>
+      <summary>Color Mode
+        <label class="rand-toggle"><input type="checkbox" id="rand-color" checked> rand</label>
+      </summary>
+      <div class="control-group">
+        <label>Mode</label>
+        <select id="color-mode-select">
+          <option value="bw" selected>Black &amp; White</option>
+          <option value="custom2">Custom 2-Color</option>
+          <option value="palette">Palette</option>
+        </select>
+      </div>
+      <div id="color-custom2" style="display:none;">
+        <div class="color-row">
+          <label>Dark</label>
+          <input type="color" id="color-fg" value="#000000">
+        </div>
+        <div class="color-row">
+          <label>Light</label>
+          <input type="color" id="color-bg" value="#ffffff">
+        </div>
+      </div>
+      <div id="color-palette" style="display:none;">
+        <div class="control-group">
+          <label>Preset</label>
+          <select id="palette-preset-select">
+            <option value="">Custom</option>
+            <option value="gameboy">GameBoy</option>
+            <option value="cga">CGA</option>
+            <option value="sepia">Sepia</option>
+            <option value="thermal">Thermal</option>
+            <option value="aurora">Aurora</option>
+            <option value="spectral">Spectral</option>
+            <option value="turbo">Turbo</option>
+            <option value="destijl">De Stijl</option>
+          </select>
+        </div>
+        <canvas class="ramp-preview" id="ramp-preview" width="330" height="20"></canvas>
+        <div id="palette-stops-container"></div>
+        <button class="secondary" onclick="addPaletteStop()" style="font-size:0.75em; padding:3px 8px; margin-top:4px;">+ Add Stop</button>
+      </div>
+    </details>
+
+    <!-- ==================== POST EFFECTS ==================== -->
+    <details class="collapsible">
+      <summary>Post Effects
+        <label class="rand-toggle"><input type="checkbox" id="rand-effects" checked> rand</label>
+      </summary>
+      <div id="fx-stack-container"></div>
+    </details>
+
+    <!-- ==================== OUTPUT ==================== -->
+    <details class="collapsible" open>
+      <summary>Output</summary>
+      <div class="row">
+        <div class="control-group">
+          <label>Width</label>
+          <input type="number" id="out-width" value="640" min="64" max="1920" step="1">
+        </div>
+        <div class="control-group">
+          <label>Height</label>
+          <input type="number" id="out-height" value="480" min="64" max="1080" step="1">
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Scale Mode</label>
+        <select id="scale-mode">
+          <option value="fit" selected>Fit</option>
+          <option value="fill">Fill</option>
+          <option value="stretch">Stretch</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label class="effect-toggle"><input type="checkbox" id="half-res"> Half-resolution preview</label>
+      </div>
+      <div class="control-group">
+        <span class="fps-display">FPS: <span id="fps-counter">--</span></span>
+      </div>
+      <div style="display:flex; gap:4px; margin-top:6px;">
+        <button onclick="exportPNG()" style="flex:1; margin:0;">PNG</button>
+        <button onclick="exportGIF()" style="flex:1; margin:0;">GIF</button>
+        <button onclick="exportMP4()" style="flex:1; margin:0;">MP4</button>
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <div class="control-group">
+          <label>Export Frames</label>
+          <input type="number" id="export-frames" value="60" min="2" max="600" step="1">
+        </div>
+        <div class="control-group">
+          <label>Export FPS</label>
+          <input type="number" id="export-fps" value="30" min="1" max="60" step="1">
+        </div>
+      </div>
+      <button id="export-cancel-btn" class="secondary" onclick="cancelExport()" style="display:none; width:100%; margin-top:4px;">Cancel Export</button>
+      <div id="export-progress"></div>
+      <div id="status"></div>
+    </details>
+
+    <!-- ==================== PRESETS ==================== -->
+    <details class="collapsible">
+      <summary>Presets</summary>
+      <div class="control-group">
+        <label>Built-in</label>
+        <div class="preset-grid">
+          <button onclick="loadBuiltinPreset('crt')">CRT TV</button>
+          <button onclick="loadBuiltinPreset('newspaper')">Newspaper</button>
+          <button onclick="loadBuiltinPreset('gameboy')">GameBoy</button>
+          <button onclick="loadBuiltinPreset('glitch')">Glitch Art</button>
+          <button onclick="loadBuiltinPreset('clean1bit')">1-Bit Clean</button>
+          <button onclick="loadBuiltinPreset('vintage')">Vintage Film</button>
+          <button onclick="loadBuiltinPreset('thermal')">Thermal Cam</button>
+          <button onclick="loadBuiltinPreset('blueprint')">Blueprint</button>
+        </div>
+      </div>
+      <div class="control-group" style="margin-top:10px;">
+        <label>User Presets</label>
+      </div>
+      <div id="user-preset-list"></div>
+      <div style="display:flex; gap:4px; margin-bottom:6px;">
+        <input type="text" id="preset-name-input" placeholder="Preset name..." style="flex:1; padding:4px 6px; font-size:0.8em;">
+        <button class="primary" onclick="saveUserPreset()" style="padding:4px 10px; font-size:0.8em; margin:0;">Save</button>
+      </div>
+      <div style="display:flex; gap:4px; margin-bottom:6px;">
+        <button class="secondary" onclick="copyPresetString()" style="flex:1; padding:4px 8px; font-size:0.75em; margin:0;">Copy Share String</button>
+        <button class="secondary" onclick="pastePresetString()" style="flex:1; padding:4px 8px; font-size:0.75em; margin:0;">Load from String</button>
+      </div>
+      <textarea id="preset-share-box" class="share-box" rows="2" placeholder="Paste a share string here to load, or copy one above to share..."></textarea>
+    </details>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script>
+// ========================================================
+// GIF WORKER BLOB URL
+// ========================================================
+let gifWorkerUrl = null;
+fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+  .then(r => r.blob())
+  .then(b => { gifWorkerUrl = URL.createObjectURL(b); })
+  .catch(() => { console.warn('Failed to pre-fetch gif.worker.js'); });
+
+// ========================================================
+// GLOBAL STATE
+// ========================================================
+let currentSource = 'webcam';
+let webcamStream = null;
+let webcamVideo = null;
+let sourceImage = null;
+let sourceVideo = null;
+let sourceReady = false;
+let animLoopActive = false;
+
+let outWidth = 640;
+let outHeight = 480;
+let renderW = 640;
+let renderH = 480;
+let scaleMode = 'fit';
+let halfRes = false;
+
+let currentAlgorithm = 'bayer8';
+let thresholdVal = 128;
+let randomAmount = 128;
+let serpentine = true;
+let diffusionStrength = 1.0;
+let halftoneSize = 6;
+let halftoneAngle = 45;
+
+let prePixelateEnabled = false;
+let prePixelateSize = 8;
+
+let colorMode = 'bw';
+let currentPalettePreset = '';
+let fgColor = [0, 0, 0];
+let bgColor = [255, 255, 255];
+let paletteStops = [
+  { pos: 0.0, color: [15, 56, 15] },
+  { pos: 0.33, color: [48, 98, 48] },
+  { pos: 0.67, color: [139, 172, 15] },
+  { pos: 1.0, color: [155, 188, 15] }
+];
+
+// Effect stack — ordered array, each with id, enabled, and params
+let fxStack = [
+  { id: 'chroma', enabled: false, offset: 4, angle: 0 },
+  { id: 'bloom', enabled: false, threshold: 128, radius: 6, intensity: 0.5 },
+  { id: 'tvlines', enabled: false, spacing: 3, bleed: 0.6 },
+  { id: 'scanlines', enabled: false, spacing: 3, thickness: 1, opacity: 0.5 },
+  { id: 'glitch', enabled: false, intensity: 0.3, frequency: 0.2, separation: 5 },
+  { id: 'pixelate', enabled: false, size: 8 },
+  { id: 'vignette', enabled: false, radius: 0.7, softness: 0.5 },
+  { id: 'noise', enabled: false, amount: 0.2, mono: true },
+];
+
+let mediaRecorder = null;
+let recordedChunks = [];
+
+let snapshotData = null;
+let recordedFrames = [];
+let recordingActive = false;
+let playbackMode = false;
+let playbackIdx = 0;
+let recStartTime = 0;
+
+let fpsFrameCount = 0;
+let fpsLastTime = 0;
+let currentFps = 0;
+
+let renderTimeout = null;
+let sourceBuffer = null;
+let grayBuffer = null;
+let ditherBuffer = null;
+let exportCancelFlag = false;
+
+// ========================================================
+// PERFORMANCE: Buffer pool — reuse typed arrays across frames
+// ========================================================
+const _bufs = {};
+function getBuffer(key, Type, size) {
+  let b = _bufs[key];
+  if (!b || b.length < size) { _bufs[key] = b = new Type(size); }
+  return b;
+}
+
+// ========================================================
+// PERFORMANCE: Palette & color caching
+// ========================================================
+let _cachedColors = null;
+let _cachedLevels = null;
+let _colorsDirty = true;
+let _nearestLUT = null; // Uint8Array(256) — maps grayscale value to palette index
+
+function markColorsDirty() {
+  _colorsDirty = true;
+  _cachedColors = null;
+  _cachedLevels = null;
+  _nearestLUT = null;
+}
+
+function bakeNearestLUT(levels) {
+  _nearestLUT = new Uint8Array(256);
+  for (let v = 0; v < 256; v++) {
+    let best = 0, bestD = Math.abs(v - levels[0]);
+    for (let j = 1; j < levels.length; j++) {
+      let d = Math.abs(v - levels[j]);
+      if (d < bestD) { bestD = d; best = j; }
+    }
+    _nearestLUT[v] = best;
+  }
+}
+
+// ========================================================
+// PERFORMANCE: Fast xorshift128 PRNG
+// ========================================================
+let _rngState = new Uint32Array([1, 2, 3, 4]);
+function xorshift128() {
+  let t = _rngState[3], s = _rngState[0];
+  _rngState[3] = _rngState[2]; _rngState[2] = _rngState[1]; _rngState[1] = s;
+  t ^= t << 11; t ^= t >>> 8; _rngState[0] = t ^ s ^ (s >>> 19);
+  return (_rngState[0] >>> 0) / 4294967296;
+}
+
+// ========================================================
+// PERFORMANCE: Cached DOM element references
+// ========================================================
+let _els = {};
+function cacheEls() {
+  _els.playbackInfo = document.getElementById('playback-info');
+  _els.playbackSeek = document.getElementById('playback-seek');
+  _els.playbackPlayBtn = document.getElementById('playback-play-btn');
+  _els.status = document.getElementById('status');
+  _els.fpsDisplay = document.getElementById('fps-display');
+  _els.recTimer = document.getElementById('rec-timer');
+  _els.recFrameCount = document.getElementById('rec-frame-count');
+  _els.videoSeek = document.getElementById('video-seek');
+  _els.videoTime = document.getElementById('video-time');
+}
+
+// ========================================================
+// BAYER MATRIX GENERATION
+// ========================================================
+const bayerMatrices = {};
+
+function generateBayerMatrix(n) {
+  if (n === 2) {
+    return new Float32Array([0, 2, 3, 1]);
+  }
+  let half = n / 2;
+  let smaller = generateBayerMatrix(half);
+  let result = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      let sx = x % half, sy = y % half;
+      let base = smaller[sy * half + sx] * 4;
+      let qx = Math.floor(x / half), qy = Math.floor(y / half);
+      let offset;
+      if (qx === 0 && qy === 0) offset = 0;
+      else if (qx === 1 && qy === 0) offset = 2;
+      else if (qx === 0 && qy === 1) offset = 3;
+      else offset = 1;
+      result[y * n + x] = base + offset;
+    }
+  }
+  return result;
+}
+
+function initBayerMatrices() {
+  [2, 4, 8, 16].forEach(n => {
+    let raw = generateBayerMatrix(n);
+    let norm = new Float32Array(n * n);
+    let max = n * n;
+    for (let i = 0; i < norm.length; i++) {
+      norm[i] = (raw[i] + 0.5) / max * 255;
+    }
+    bayerMatrices[n] = norm;
+  });
+}
+
+// ========================================================
+// BLUE NOISE TEXTURE (procedural 64x64)
+// ========================================================
+let blueNoiseTexture = null;
+
+function initBlueNoise() {
+  // Generate a blue noise approximation using interleaved gradient noise
+  let size = 64;
+  blueNoiseTexture = new Float32Array(size * size);
+  // Use a pre-seeded hash-based approach for deterministic blue noise
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      // Interleaved gradient noise (Jorge Jimenez, 2014)
+      let v = (52.9829189 * ((0.06711056 * (x + 0.5) + 0.00583715 * (y + 0.5)) % 1.0)) % 1.0;
+      blueNoiseTexture[y * size + x] = v * 255;
+    }
+  }
+  // Apply multiple rounds of void-and-cluster approximation via shuffling
+  // This improves the frequency spectrum
+  let indices = [];
+  for (let i = 0; i < size * size; i++) indices.push(i);
+  indices.sort((a, b) => blueNoiseTexture[a] - blueNoiseTexture[b]);
+  for (let i = 0; i < indices.length; i++) {
+    blueNoiseTexture[indices[i]] = (i + 0.5) / indices.length * 255;
+  }
+}
+
+// ========================================================
+// DITHER ALGORITHMS
+// ========================================================
+
+const ERROR_KERNELS = {
+  'floyd-steinberg': {
+    divisor: 16,
+    offsets: [[1,0,7], [-1,1,3], [0,1,5], [1,1,1]]
+  },
+  'jarvis': {
+    divisor: 48,
+    offsets: [[1,0,7],[2,0,5],[-2,1,3],[-1,1,5],[0,1,7],[1,1,5],[2,1,3],[-2,2,1],[-1,2,3],[0,2,5],[1,2,3],[2,2,1]]
+  },
+  'stucki': {
+    divisor: 42,
+    offsets: [[1,0,8],[2,0,4],[-2,1,2],[-1,1,4],[0,1,8],[1,1,4],[2,1,2],[-2,2,1],[-1,2,2],[0,2,4],[1,2,2],[2,2,1]]
+  },
+  'atkinson': {
+    divisor: 8,
+    offsets: [[1,0,1],[2,0,1],[-1,1,1],[0,1,1],[1,1,1],[0,2,1]]
+  },
+  'burkes': {
+    divisor: 32,
+    offsets: [[1,0,8],[2,0,4],[-2,1,2],[-1,1,4],[0,1,8],[1,1,4],[2,1,2]]
+  },
+  'sierra3': {
+    divisor: 32,
+    offsets: [[1,0,5],[2,0,3],[-2,1,2],[-1,1,4],[0,1,5],[1,1,4],[2,1,2],[-1,2,2],[0,2,3],[1,2,2]]
+  },
+  'sierra2': {
+    divisor: 16,
+    offsets: [[1,0,4],[2,0,3],[-2,1,1],[-1,1,2],[0,1,3],[1,1,2],[2,1,1]]
+  },
+  'sierra-lite': {
+    divisor: 4,
+    offsets: [[1,0,2],[-1,1,1],[0,1,1]]
+  }
+};
+
+function sourceToGrayscale(px, w, h) {
+  let n = w * h;
+  let gray = getBuffer('gray', Float32Array, n);
+  for (let i = 0; i < n; i++) {
+    let idx = i << 2;
+    gray[i] = 0.299 * px[idx] + 0.587 * px[idx + 1] + 0.114 * px[idx + 2];
+  }
+  return gray;
+}
+
+function getPaletteLevels() {
+  if (!_colorsDirty && _cachedLevels) return _cachedLevels;
+  let levels;
+  if (colorMode === 'bw') { levels = [0, 255]; }
+  else if (colorMode === 'custom2') {
+    let l1 = 0.299 * fgColor[0] + 0.587 * fgColor[1] + 0.114 * fgColor[2];
+    let l2 = 0.299 * bgColor[0] + 0.587 * bgColor[1] + 0.114 * bgColor[2];
+    levels = l1 < l2 ? [l1, l2] : [l2, l1];
+  } else {
+    // Palette mode: quantize to N levels matching the number of stops
+    let n = paletteStops.length;
+    levels = [];
+    for (let i = 0; i < n; i++) levels.push(i * 255 / (n - 1));
+  }
+  _cachedLevels = levels;
+  bakeNearestLUT(levels);
+  return levels;
+}
+
+function getOutputColors() {
+  if (!_colorsDirty && _cachedColors) return _cachedColors;
+  let result;
+  if (colorMode === 'bw') { result = [[0, 0, 0], [255, 255, 255]]; }
+  else if (colorMode === 'custom2') {
+    let l1 = 0.299 * fgColor[0] + 0.587 * fgColor[1] + 0.114 * fgColor[2];
+    let l2 = 0.299 * bgColor[0] + 0.587 * bgColor[1] + 0.114 * bgColor[2];
+    result = l1 < l2 ? [fgColor, bgColor] : [bgColor, fgColor];
+  } else {
+    let sorted = paletteStops.slice().sort((a, b) => {
+      let la = 0.299 * a.color[0] + 0.587 * a.color[1] + 0.114 * a.color[2];
+      let lb = 0.299 * b.color[0] + 0.587 * b.color[1] + 0.114 * b.color[2];
+      return la - lb;
+    });
+    result = sorted.map(s => s.color);
+  }
+  _cachedColors = result;
+  _colorsDirty = false;
+  return result;
+}
+
+function nearestLevel(val, levels) {
+  // Fast path: use pre-computed LUT
+  let clamped = val < 0 ? 0 : val > 255 ? 255 : val | 0;
+  if (_nearestLUT) return _nearestLUT[clamped];
+  let best = 0, bestDist = Math.abs(val - levels[0]);
+  for (let i = 1; i < levels.length; i++) {
+    let d = Math.abs(val - levels[i]);
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  return best;
+}
+
+function ditherThreshold(gray, w, h, levels) {
+  let n = w * h;
+  let out = getBuffer('dout', Uint8Array, n);
+  for (let i = 0; i < n; i++) {
+    out[i] = nearestLevel(gray[i], levels);
+  }
+  return out;
+}
+
+function ditherRandom(gray, w, h, levels) {
+  let n = w * h;
+  let out = getBuffer('dout', Uint8Array, n);
+  let amt = randomAmount;
+  for (let i = 0; i < n; i++) {
+    let v = gray[i] + (xorshift128() - 0.5) * amt;
+    out[i] = nearestLevel(v, levels);
+  }
+  return out;
+}
+
+function ditherBayer(gray, w, h, levels, matrixSize) {
+  let total = w * h;
+  let out = getBuffer('dout', Uint8Array, total);
+  let matrix = bayerMatrices[matrixSize];
+  let n = matrixSize;
+  let numLevels = levels.length;
+  let spread = 255 / numLevels;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let i = y * w + x;
+      let bayerVal = matrix[(y % n) * n + (x % n)] - 128;
+      let v = gray[i] + bayerVal * spread / 255;
+      out[i] = nearestLevel(v, levels);
+    }
+  }
+  return out;
+}
+
+function ditherBlueNoise(gray, w, h, levels) {
+  let total = w * h;
+  let out = getBuffer('dout', Uint8Array, total);
+  let numLevels = levels.length;
+  let spread = 255 / numLevels;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let i = y * w + x;
+      let noiseVal = blueNoiseTexture[(y % 64) * 64 + (x % 64)] - 128;
+      let v = gray[i] + noiseVal * spread / 255;
+      out[i] = nearestLevel(v, levels);
+    }
+  }
+  return out;
+}
+
+function ditherErrorDiffusion(gray, w, h, levels, kernelName) {
+  let kernel = ERROR_KERNELS[kernelName];
+  let n = w * h;
+  let work = getBuffer('edBuf', Float32Array, n);
+  work.set(gray.subarray ? gray.subarray(0, n) : gray);
+  let out = getBuffer('dout', Uint8Array, n);
+  let strength = diffusionStrength;
+  let useSerpentine = serpentine;
+
+  // Pre-flatten kernel: avoid destructuring in inner loop
+  // Cache flattened kernels per kernel name
+  if (!kernel._flat) {
+    let kLen = kernel.offsets.length;
+    let invDiv = 1 / kernel.divisor;
+    kernel._flat = {
+      len: kLen,
+      dx: new Int8Array(kernel.offsets.map(o => o[0])),
+      dy: new Int8Array(kernel.offsets.map(o => o[1])),
+      w: new Float32Array(kernel.offsets.map(o => o[2] * invDiv))
+    };
+  }
+  let kLen = kernel._flat.len;
+  let kDx = kernel._flat.dx, kDy = kernel._flat.dy, kW = kernel._flat.w;
+
+  for (let y = 0; y < h; y++) {
+    let leftToRight = !useSerpentine || (y % 2 === 0);
+    let startX = leftToRight ? 0 : w - 1;
+    let endX = leftToRight ? w : -1;
+    let stepX = leftToRight ? 1 : -1;
+
+    for (let x = startX; x !== endX; x += stepX) {
+      let i = y * w + x;
+      let oldVal = work[i];
+      let idx = nearestLevel(oldVal, levels);
+      out[i] = idx;
+      let err = (oldVal - levels[idx]) * strength;
+
+      for (let k = 0; k < kLen; k++) {
+        let dx = leftToRight ? kDx[k] : -kDx[k];
+        let nx = x + dx, ny = y + kDy[k];
+        if (nx >= 0 && nx < w && ny < h) {
+          work[ny * w + nx] += err * kW[k];
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function ditherHalftone(gray, w, h, levels) {
+  let total = w * h;
+  let out = getBuffer('dout', Uint8Array, total);
+  let size = halftoneSize;
+  let angleRad = halftoneAngle * Math.PI / 180;
+  let cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
+  let halfSize = size / 2;
+  let invHalfSize2 = 1 / (halfSize * halfSize); // squared distance normalization
+  let multiLevel = levels.length > 2;
+  let lastIdx = levels.length - 1;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let i = y * w + x;
+      let rx = x * cosA + y * sinA;
+      let ry = -x * sinA + y * cosA;
+      let cx = ((rx % size) + size) % size - halfSize;
+      let cy = ((ry % size) + size) % size - halfSize;
+      // Use squared distance to avoid Math.sqrt
+      let dist2 = (cx * cx + cy * cy) * invHalfSize2;
+      let lum = gray[i] / 255;
+      let threshold = (1 - lum) * (1 - lum); // square the threshold too
+      out[i] = dist2 > threshold ? lastIdx : 0;
+      if (multiLevel) {
+        let v = dist2 > threshold ? gray[i] : 0;
+        out[i] = nearestLevel(v, levels);
+      }
+    }
+  }
+  return out;
+}
+
+function applyDither(gray, w, h) {
+  let levels = getPaletteLevels();
+  let algo = currentAlgorithm;
+
+  if (algo === 'threshold') return ditherThreshold(gray, w, h, levels);
+  if (algo === 'random') return ditherRandom(gray, w, h, levels);
+  if (algo === 'bayer2') return ditherBayer(gray, w, h, levels, 2);
+  if (algo === 'bayer4') return ditherBayer(gray, w, h, levels, 4);
+  if (algo === 'bayer8') return ditherBayer(gray, w, h, levels, 8);
+  if (algo === 'bayer16') return ditherBayer(gray, w, h, levels, 16);
+  if (algo === 'blue-noise') return ditherBlueNoise(gray, w, h, levels);
+  if (algo === 'halftone') return ditherHalftone(gray, w, h, levels);
+  // Error diffusion
+  return ditherErrorDiffusion(gray, w, h, levels, algo);
+}
+
+// ========================================================
+// PRE-DITHER EFFECTS
+// ========================================================
+
+function applyPrePixelate(px, w, h, blockSize) {
+  let bs = blockSize;
+  for (let by = 0; by < h; by += bs) {
+    for (let bx = 0; bx < w; bx += bs) {
+      let r = 0, g = 0, b = 0, count = 0;
+      let maxY = Math.min(by + bs, h);
+      let maxX = Math.min(bx + bs, w);
+      for (let y = by; y < maxY; y++) {
+        for (let x = bx; x < maxX; x++) {
+          let idx = (y * w + x) << 2;
+          r += px[idx]; g += px[idx + 1]; b += px[idx + 2];
+          count++;
+        }
+      }
+      r = (r / count) | 0; g = (g / count) | 0; b = (b / count) | 0;
+      for (let y = by; y < maxY; y++) {
+        for (let x = bx; x < maxX; x++) {
+          let idx = (y * w + x) << 2;
+          px[idx] = r; px[idx + 1] = g; px[idx + 2] = b;
+        }
+      }
+    }
+  }
+}
+
+// ========================================================
+// POST-PROCESSING EFFECTS
+// ========================================================
+
+function fxApplyChroma(px, w, h, offset, angle) {
+  let copy = getBuffer('fxCopy', Uint8Array, w * h * 4);
+  copy.set(px);
+  let rad = angle * Math.PI / 180;
+  let dx = Math.round(Math.cos(rad) * offset);
+  let dy = Math.round(Math.sin(rad) * offset);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let i = (y * w + x) << 2;
+      // R channel: shift forward
+      let rx = x + dx, ry = y + dy;
+      if (rx >= 0 && rx < w && ry >= 0 && ry < h) {
+        px[i] = copy[(ry * w + rx) << 2];
+      }
+      // B channel: shift backward
+      let bx = x - dx, by2 = y - dy;
+      if (bx >= 0 && bx < w && by2 >= 0 && by2 < h) {
+        px[i + 2] = copy[((by2) * w + bx) << 2 | 2];
+      }
+    }
+  }
+}
+
+function fxApplyBloom(px, w, h, threshold, radius, intensity) {
+  let n = w * h;
+  let bright = getBuffer('bloomA', Float32Array, n);
+  // Extract bright pixels
+  for (let i = 0; i < n; i++) {
+    let idx = i << 2;
+    let lum = 0.299 * px[idx] + 0.587 * px[idx + 1] + 0.114 * px[idx + 2];
+    bright[i] = lum > threshold ? lum : 0;
+  }
+  // 3-pass box blur
+  let temp = getBuffer('bloomB', Float32Array, n);
+  for (let pass = 0; pass < 3; pass++) {
+    // Horizontal
+    for (let y = 0; y < h; y++) {
+      let acc = 0, count = 0;
+      for (let x = 0; x < Math.min(radius, w); x++) { acc += bright[y * w + x]; count++; }
+      for (let x = 0; x < w; x++) {
+        let add = x + radius < w ? x + radius : w - 1;
+        let rem = x - radius - 1;
+        if (x + radius < w) { acc += bright[y * w + add]; count++; }
+        if (rem >= 0) { acc -= bright[y * w + rem]; count--; }
+        temp[y * w + x] = acc / count;
+      }
+    }
+    // Vertical
+    for (let x = 0; x < w; x++) {
+      let acc = 0, count = 0;
+      for (let y = 0; y < Math.min(radius, h); y++) { acc += temp[y * w + x]; count++; }
+      for (let y = 0; y < h; y++) {
+        let add = y + radius < h ? y + radius : h - 1;
+        let rem = y - radius - 1;
+        if (y + radius < h) { acc += temp[add * w + x]; count++; }
+        if (rem >= 0) { acc -= temp[rem * w + x]; count--; }
+        bright[y * w + x] = acc / count;
+      }
+    }
+  }
+  // Blend back
+  for (let i = 0; i < w * h; i++) {
+    let idx = i << 2;
+    let bloom = bright[i] * intensity;
+    px[idx] = Math.min(255, px[idx] + bloom) | 0;
+    px[idx + 1] = Math.min(255, px[idx + 1] + bloom) | 0;
+    px[idx + 2] = Math.min(255, px[idx + 2] + bloom) | 0;
+  }
+}
+
+function fxApplyTvLines(px, w, h, spacing, bleed) {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let i = (y * w + x) << 2;
+      let phase = x % (spacing * 3);
+      let sub = Math.floor(phase / spacing);
+      let atten = 1 - bleed * 0.5;
+      let boost = 1 + bleed * 0.5;
+      if (sub === 0) {
+        px[i] = Math.min(255, px[i] * boost) | 0;
+        px[i + 1] = (px[i + 1] * atten) | 0;
+        px[i + 2] = (px[i + 2] * atten) | 0;
+      } else if (sub === 1) {
+        px[i] = (px[i] * atten) | 0;
+        px[i + 1] = Math.min(255, px[i + 1] * boost) | 0;
+        px[i + 2] = (px[i + 2] * atten) | 0;
+      } else {
+        px[i] = (px[i] * atten) | 0;
+        px[i + 1] = (px[i + 1] * atten) | 0;
+        px[i + 2] = Math.min(255, px[i + 2] * boost) | 0;
+      }
+    }
+  }
+}
+
+function fxApplyScanLines(px, w, h, spacing, thickness, opacity) {
+  let period = spacing + thickness;
+  for (let y = 0; y < h; y++) {
+    if (y % period < thickness) {
+      let factor = 1 - opacity;
+      for (let x = 0; x < w; x++) {
+        let i = (y * w + x) << 2;
+        px[i] = (px[i] * factor) | 0;
+        px[i + 1] = (px[i + 1] * factor) | 0;
+        px[i + 2] = (px[i + 2] * factor) | 0;
+      }
+    }
+  }
+}
+
+function fxApplyGlitch(px, w, h, intensity, frequency, separation) {
+  let copy = getBuffer('fxCopy', Uint8Array, w * h * 4);
+  copy.set(px);
+  // Row displacement
+  for (let y = 0; y < h; y++) {
+    if (xorshift128() < frequency * 0.3) {
+      let shift = Math.round((xorshift128() - 0.5) * w * intensity * 0.2);
+      for (let x = 0; x < w; x++) {
+        let sx = x - shift;
+        let di = (y * w + x) << 2;
+        if (sx >= 0 && sx < w) {
+          let si = (y * w + sx) << 2;
+          px[di] = copy[si]; px[di + 1] = copy[si + 1]; px[di + 2] = copy[si + 2];
+        }
+      }
+    }
+  }
+  // Color channel separation
+  if (separation > 0) {
+    let copy2 = getBuffer('fxCopy2', Uint8Array, w * h * 4);
+    copy2.set(px);
+    let sep = Math.round(separation);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let i = (y * w + x) << 2;
+        let rx = Math.min(w - 1, x + sep);
+        let bx = Math.max(0, x - sep);
+        px[i] = copy2[(y * w + rx) << 2];
+        px[i + 2] = copy2[(y * w + bx) << 2 | 2];
+      }
+    }
+  }
+  // Tear lines
+  for (let t = 0; t < 3; t++) {
+    if (xorshift128() < intensity * 0.5) {
+      let y = (xorshift128() * h) | 0;
+      for (let x = 0; x < w; x++) {
+        let i = (y * w + x) << 2;
+        px[i] = Math.min(255, px[i] + 100);
+        px[i + 1] = Math.min(255, px[i + 1] + 100);
+        px[i + 2] = Math.min(255, px[i + 2] + 100);
+      }
+    }
+  }
+}
+
+function fxApplyPixelate(px, w, h, blockSize) {
+  applyPrePixelate(px, w, h, blockSize);
+}
+
+function fxApplyVignette(px, w, h, radius, softness) {
+  let cx = w / 2, cy = h / 2;
+  let maxDist2 = cx * cx + cy * cy;
+  let maxDist = Math.sqrt(maxDist2);
+  let inner = maxDist * radius;
+  let outer = inner + maxDist * softness * (1 - radius);
+  if (outer <= inner) outer = inner + 1;
+  // Pre-compute squared thresholds
+  let inner2 = inner * inner;
+  let range = outer - inner;
+  let invRange = 1 / range;
+
+  for (let y = 0; y < h; y++) {
+    let dy = y - cy;
+    let dy2 = dy * dy;
+    for (let x = 0; x < w; x++) {
+      let dx = x - cx;
+      let dist2 = dx * dx + dy2;
+      if (dist2 > inner2) {
+        // Only use sqrt when we need the smooth falloff factor (pixels near edge)
+        let dist = Math.sqrt(dist2);
+        let t = (dist - inner) * invRange;
+        if (t > 1) t = 1;
+        let factor = 1 - t;
+        factor = factor * factor;
+        let i = (y * w + x) << 2;
+        px[i] = (px[i] * factor) | 0;
+        px[i + 1] = (px[i + 1] * factor) | 0;
+        px[i + 2] = (px[i + 2] * factor) | 0;
+      }
+    }
+  }
+}
+
+function fxApplyNoise(px, w, h, amount, mono) {
+  let scale = amount * 128;
+  let total = w * h;
+  for (let i = 0; i < total; i++) {
+    let idx = i << 2;
+    if (mono) {
+      let n = (xorshift128() - 0.5) * scale;
+      let r = px[idx] + n, g = px[idx + 1] + n, b = px[idx + 2] + n;
+      px[idx] = (r < 0 ? 0 : r > 255 ? 255 : r) | 0;
+      px[idx + 1] = (g < 0 ? 0 : g > 255 ? 255 : g) | 0;
+      px[idx + 2] = (b < 0 ? 0 : b > 255 ? 255 : b) | 0;
+    } else {
+      let r = px[idx] + (xorshift128() - 0.5) * scale;
+      let g = px[idx + 1] + (xorshift128() - 0.5) * scale;
+      let b = px[idx + 2] + (xorshift128() - 0.5) * scale;
+      px[idx] = (r < 0 ? 0 : r > 255 ? 255 : r) | 0;
+      px[idx + 1] = (g < 0 ? 0 : g > 255 ? 255 : g) | 0;
+      px[idx + 2] = (b < 0 ? 0 : b > 255 ? 255 : b) | 0;
+    }
+  }
+}
+
+function applyPostEffects(px, w, h) {
+  for (let fx of fxStack) {
+    if (!fx.enabled) continue;
+    switch (fx.id) {
+      case 'chroma': fxApplyChroma(px, w, h, fx.offset, fx.angle); break;
+      case 'bloom': fxApplyBloom(px, w, h, fx.threshold, fx.radius, fx.intensity); break;
+      case 'tvlines': fxApplyTvLines(px, w, h, fx.spacing, fx.bleed); break;
+      case 'scanlines': fxApplyScanLines(px, w, h, fx.spacing, fx.thickness, fx.opacity); break;
+      case 'glitch': fxApplyGlitch(px, w, h, fx.intensity, fx.frequency, fx.separation); break;
+      case 'pixelate': fxApplyPixelate(px, w, h, fx.size); break;
+      case 'vignette': fxApplyVignette(px, w, h, fx.radius, fx.softness); break;
+      case 'noise': fxApplyNoise(px, w, h, fx.amount, fx.mono); break;
+    }
+  }
+}
+
+function getFx(id) { return fxStack.find(f => f.id === id); }
+
+// ========================================================
+// PALETTE SYSTEM (stop-based with presets)
+// ========================================================
+
+const PALETTE_PRESETS = {
+  gameboy:  [{ pos:0, color:[15,56,15] }, { pos:0.33, color:[48,98,48] }, { pos:0.67, color:[139,172,15] }, { pos:1, color:[155,188,15] }],
+  cga:      [{ pos:0, color:[0,0,0] }, { pos:0.33, color:[85,255,255] }, { pos:0.67, color:[255,85,255] }, { pos:1, color:[255,255,255] }],
+  sepia:    [{ pos:0, color:[44,30,15] }, { pos:0.33, color:[100,70,40] }, { pos:0.67, color:[180,140,90] }, { pos:1, color:[230,210,170] }],
+  thermal:  [{ pos:0, color:[0,0,64] }, { pos:0.33, color:[128,0,128] }, { pos:0.67, color:[255,128,0] }, { pos:1, color:[255,255,64] }],
+  aurora:   [{ pos:0, color:[20,0,60] }, { pos:0.2, color:[60,10,120] }, { pos:0.4, color:[80,30,160] }, { pos:0.6, color:[40,120,160] }, { pos:0.8, color:[30,200,180] }, { pos:1, color:[100,240,150] }],
+  spectral: [{ pos:0, color:[158,1,66] }, { pos:0.11, color:[213,62,79] }, { pos:0.22, color:[244,109,67] }, { pos:0.33, color:[253,174,97] }, { pos:0.44, color:[254,224,139] }, { pos:0.56, color:[230,245,152] }, { pos:0.67, color:[171,221,164] }, { pos:0.78, color:[102,194,165] }, { pos:0.89, color:[50,136,189] }, { pos:1, color:[94,79,162] }],
+  turbo:    [{ pos:0, color:[48,18,59] }, { pos:0.25, color:[70,130,180] }, { pos:0.5, color:[40,200,130] }, { pos:0.75, color:[230,220,50] }, { pos:1, color:[122,4,3] }],
+  destijl:  [{ pos:0, color:[20,20,20] }, { pos:0.25, color:[200,16,46] }, { pos:0.5, color:[255,210,0] }, { pos:0.75, color:[0,70,148] }, { pos:1, color:[240,236,228] }],
+};
+
+function lerp3(a, b, t) {
+  return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+}
+
+function paletteColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  let stops = paletteStops;
+  if (!stops || stops.length === 0) return [0,0,0];
+  if (stops.length === 1) return stops[0].color;
+  let sorted = stops.slice().sort((a,b) => a.pos - b.pos);
+  if (t <= sorted[0].pos) return sorted[0].color;
+  if (t >= sorted[sorted.length-1].pos) return sorted[sorted.length-1].color;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (t >= sorted[i].pos && t <= sorted[i+1].pos) {
+      let range = sorted[i+1].pos - sorted[i].pos;
+      let f = range > 0 ? (t - sorted[i].pos) / range : 0;
+      return lerp3(sorted[i].color, sorted[i+1].color, f);
+    }
+  }
+  return sorted[sorted.length-1].color;
+}
+
+function bakePaletteLUT() {
+  let lut = new Uint8Array(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    let c = paletteColor(i / 255);
+    lut[i * 3] = c[0] | 0;
+    lut[i * 3 + 1] = c[1] | 0;
+    lut[i * 3 + 2] = c[2] | 0;
+  }
+  return lut;
+}
+
+function drawPalettePreview() {
+  let canvas = document.getElementById('ramp-preview');
+  if (!canvas) return;
+  let ctx = canvas.getContext('2d');
+  let w = canvas.width, h = canvas.height;
+  for (let x = 0; x < w; x++) {
+    let t = x / (w - 1);
+    let c = paletteColor(t);
+    ctx.fillStyle = `rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+    ctx.fillRect(x, 0, 1, h);
+  }
+}
+
+function renderPaletteStopEditor() {
+  let container = document.getElementById('palette-stops-container');
+  if (!container) return;
+  let html = '';
+  paletteStops.forEach((stop, i) => {
+    let hex = rgbToHex(stop.color[0], stop.color[1], stop.color[2]);
+    html += `<div class="ramp-stop-row" data-idx="${i}">
+      <input type="number" value="${stop.pos.toFixed(2)}" min="0" max="1" step="0.01"
+        title="Position (0-1)" onchange="updatePaletteStop(${i}, 'pos', this.value)">
+      <input type="color" value="${hex}"
+        onchange="updatePaletteStop(${i}, 'color', this.value)">
+      <span style="font-size:0.68em; color:#666; width:60px;">${stop.color.join(',')}</span>
+      ${paletteStops.length > 2 ?
+        '<button onclick="removePaletteStop(' + i + ')">&times;</button>' : ''}
+    </div>`;
+  });
+  container.innerHTML = html;
+  drawPalettePreview();
+}
+
+function updatePaletteStop(idx, prop, value) {
+  currentPalettePreset = '';
+  let sel = document.getElementById('palette-preset-select');
+  if (sel) sel.value = '';
+  if (prop === 'pos') {
+    paletteStops[idx].pos = Math.max(0, Math.min(1, parseFloat(value) || 0));
+  } else if (prop === 'color') {
+    paletteStops[idx].color = hexToRgb(value);
+  }
+  markColorsDirty();
+  renderPaletteStopEditor();
+  scheduleRender();
+}
+
+function addPaletteStop() {
+  currentPalettePreset = '';
+  let sel = document.getElementById('palette-preset-select');
+  if (sel) sel.value = '';
+  let sorted = paletteStops.slice().sort((a,b) => a.pos - b.pos);
+  let maxGap = 0, gapIdx = 0;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    let gap = sorted[i+1].pos - sorted[i].pos;
+    if (gap > maxGap) { maxGap = gap; gapIdx = i; }
+  }
+  let newPos = (sorted[gapIdx].pos + sorted[gapIdx+1].pos) / 2;
+  let newColor = lerp3(sorted[gapIdx].color, sorted[gapIdx+1].color, 0.5).map(Math.round);
+  paletteStops.push({ pos: newPos, color: newColor });
+  paletteStops.sort((a,b) => a.pos - b.pos);
+  markColorsDirty();
+  renderPaletteStopEditor();
+  scheduleRender();
+}
+
+function removePaletteStop(idx) {
+  if (paletteStops.length <= 2) return;
+  currentPalettePreset = '';
+  let sel = document.getElementById('palette-preset-select');
+  if (sel) sel.value = '';
+  paletteStops.splice(idx, 1);
+  markColorsDirty();
+  renderPaletteStopEditor();
+  scheduleRender();
+}
+
+function loadPalettePreset(name) {
+  let preset = PALETTE_PRESETS[name];
+  if (!preset) return;
+  currentPalettePreset = name;
+  paletteStops = preset.map(s => ({ pos: s.pos, color: [...s.color] }));
+  markColorsDirty();
+  renderPaletteStopEditor();
+  scheduleRender();
+}
+
+// ========================================================
+// EFFECT STACK UI (draggable)
+// ========================================================
+
+const FX_DEFS = {
+  bloom: { label: 'Bloom / Glow', params: [
+    { key: 'threshold', label: 'Threshold', min: 0, max: 255, step: 1, suffix: '' },
+    { key: 'radius', label: 'Radius', min: 1, max: 20, step: 1, suffix: '' },
+    { key: 'intensity', label: 'Intensity', min: 0, max: 100, step: 1, suffix: '%', scale: 0.01 },
+  ]},
+  scanlines: { label: 'Scan Lines', params: [
+    { key: 'spacing', label: 'Spacing', min: 1, max: 10, step: 1, suffix: '' },
+    { key: 'thickness', label: 'Thickness', min: 1, max: 5, step: 1, suffix: '' },
+    { key: 'opacity', label: 'Opacity', min: 0, max: 100, step: 1, suffix: '%', scale: 0.01 },
+  ]},
+  tvlines: { label: 'TV Lines', params: [
+    { key: 'spacing', label: 'Spacing', min: 1, max: 8, step: 1, suffix: '' },
+    { key: 'bleed', label: 'Color Bleed', min: 0, max: 100, step: 1, suffix: '%', scale: 0.01 },
+  ]},
+  glitch: { label: 'Analog Glitch', params: [
+    { key: 'intensity', label: 'Intensity', min: 0, max: 100, step: 1, suffix: '%', scale: 0.01 },
+    { key: 'frequency', label: 'Frequency', min: 0, max: 100, step: 1, suffix: '%', scale: 0.01 },
+    { key: 'separation', label: 'Color Sep.', min: 0, max: 30, step: 1, suffix: 'px' },
+  ]},
+  chroma: { label: 'Chromatic Aberration', params: [
+    { key: 'offset', label: 'Offset', min: 0, max: 20, step: 1, suffix: 'px' },
+    { key: 'angle', label: 'Angle', min: 0, max: 360, step: 1, suffix: '\u00B0' },
+  ]},
+  vignette: { label: 'Vignette', params: [
+    { key: 'radius', label: 'Radius', min: 10, max: 100, step: 1, suffix: '%', scale: 0.01 },
+    { key: 'softness', label: 'Softness', min: 0, max: 100, step: 1, suffix: '%', scale: 0.01 },
+  ]},
+  noise: { label: 'Noise Overlay', params: [
+    { key: 'amount', label: 'Amount', min: 0, max: 100, step: 1, suffix: '%', scale: 0.01 },
+    { key: 'mono', label: 'Monochrome', type: 'checkbox' },
+  ]},
+  pixelate: { label: 'Pixelate', params: [
+    { key: 'size', label: 'Block Size', min: 2, max: 64, step: 1, suffix: 'px' },
+  ]},
+};
+
+function toggleFxRow(headerEl) {
+  headerEl.closest('.fx-row').classList.toggle('fx-open');
+}
+
+function renderFxStackUI() {
+  let container = document.getElementById('fx-stack-container');
+  container.innerHTML = fxStack.map((fx, i) => {
+    let def = FX_DEFS[fx.id];
+    let paramHtml = def.params.map(p => {
+      if (p.type === 'checkbox') {
+        return `<div class="control-group" style="margin:2px 0;">
+          <label class="effect-toggle" style="font-size:0.8em;"><input type="checkbox" data-fx="${i}" data-key="${p.key}" ${fx[p.key] ? 'checked' : ''}> ${p.label}</label>
+        </div>`;
+      }
+      let displayVal = p.scale ? Math.round(fx[p.key] / p.scale) : fx[p.key];
+      return `<div class="control-group" style="margin:2px 0;">
+        <label style="font-size:0.78em;">${p.label}</label>
+        <div class="slider-row">
+          <input type="range" data-fx="${i}" data-key="${p.key}" data-scale="${p.scale||1}" min="${p.min}" max="${p.max}" step="${p.step}" value="${displayVal}">
+          <span class="slider-val">${displayVal}${p.suffix}</span>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="fx-row" data-fx-idx="${i}">
+      <div class="fx-header" onclick="toggleFxRow(this)">
+        <span class="fx-arrow">&#x25B6;</span>
+        <label class="effect-toggle" onclick="event.stopPropagation()"><input type="checkbox" data-fx="${i}" data-key="enabled" ${fx.enabled ? 'checked' : ''}> ${def.label}</label>
+        <span class="fx-order">${i+1}</span>
+        <span class="layer-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()">&#x2630;</span>
+      </div>
+      <div class="fx-params">${paramHtml}</div>
+    </div>`;
+  }).join('');
+
+  // Wire slider and checkbox events
+  container.querySelectorAll('input[type="range"]').forEach(inp => {
+    inp.addEventListener('input', function() {
+      let idx = parseInt(this.dataset.fx);
+      let key = this.dataset.key;
+      let scale = parseFloat(this.dataset.scale) || 1;
+      fxStack[idx][key] = parseInt(this.value) * scale;
+      let valSpan = this.parentElement.querySelector('.slider-val');
+      if (valSpan) {
+        let def = FX_DEFS[fxStack[idx].id];
+        let pDef = def.params.find(p => p.key === key);
+        valSpan.textContent = this.value + (pDef ? pDef.suffix : '');
+      }
+      scheduleRender();
+    });
+  });
+  container.querySelectorAll('input[type="checkbox"]').forEach(inp => {
+    inp.addEventListener('change', function() {
+      let idx = parseInt(this.dataset.fx);
+      let key = this.dataset.key;
+      fxStack[idx][key] = this.checked;
+      scheduleRender();
+    });
+  });
+
+  initFxDragHandles();
+}
+
+function initFxDragHandles() {
+  let container = document.getElementById('fx-stack-container');
+  let rows = Array.from(container.querySelectorAll('.fx-row'));
+  if (rows.length < 2) return;
+
+  let indicator = document.createElement('div');
+  indicator.className = 'layer-drop-indicator';
+  indicator.style.display = 'none';
+
+  rows.forEach(row => {
+    let handle = row.querySelector('.layer-drag-handle');
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      handle.setPointerCapture(e.pointerId);
+      let fromIdx = parseInt(row.dataset.fxIdx);
+      let startY = e.clientY;
+      let dropGap = -1;
+      row.classList.add('dragging');
+      row.style.position = 'relative';
+      row.style.zIndex = '10';
+      row.style.transition = 'none';
+
+      function onMove(ev) {
+        let dy = ev.clientY - startY;
+        row.style.transform = `translateY(${dy}px)`;
+        let cursorY = ev.clientY;
+        let bestGap = -1, bestDist = Infinity;
+        for (let i = 0; i <= rows.length; i++) {
+          let gapY;
+          if (i === 0) gapY = rows[0].getBoundingClientRect().top;
+          else if (i === rows.length) gapY = rows[rows.length - 1].getBoundingClientRect().bottom;
+          else gapY = (rows[i - 1].getBoundingClientRect().bottom + rows[i].getBoundingClientRect().top) / 2;
+          let dist = Math.abs(cursorY - gapY);
+          if (dist < bestDist) { bestDist = dist; bestGap = i; }
+        }
+        if (bestGap === fromIdx || bestGap === fromIdx + 1) {
+          if (indicator.parentNode) indicator.style.display = 'none';
+          dropGap = -1;
+          return;
+        }
+        if (bestGap !== dropGap) {
+          dropGap = bestGap;
+          if (dropGap === 0) container.insertBefore(indicator, rows[0]);
+          else if (dropGap >= rows.length) container.appendChild(indicator);
+          else container.insertBefore(indicator, rows[dropGap]);
+          indicator.style.display = '';
+        }
+      }
+
+      function onUp() {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        row.classList.remove('dragging');
+        row.style.position = ''; row.style.zIndex = ''; row.style.transform = ''; row.style.transition = '';
+        if (indicator.parentNode) indicator.remove();
+        if (dropGap >= 0) {
+          let toIdx = dropGap > fromIdx ? dropGap - 1 : dropGap;
+          if (toIdx !== fromIdx && toIdx >= 0 && toIdx < fxStack.length) {
+            let moved = fxStack.splice(fromIdx, 1)[0];
+            fxStack.splice(toIdx, 0, moved);
+            renderFxStackUI();
+            scheduleRender();
+          }
+        }
+      }
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
+  });
+}
+
+// ========================================================
+// INPUT SOURCE MANAGEMENT
+// ========================================================
+
+function switchSource(mode) {
+  // Stop previous source
+  if (currentSource === 'webcam' && webcamStream) stopWebcam();
+  if (currentSource === 'video' && sourceVideo) sourceVideo.pause();
+
+  // Clear snapshot/playback state
+  snapshotData = null;
+  if (playbackMode) {
+    stopPlaybackLoop();
+    playbackMode = false;
+    document.getElementById('playback-controls').style.display = 'none';
+  }
+  if (recordingActive) stopRecording();
+
+  currentSource = mode;
+  document.querySelectorAll('.source-tab').forEach(t => t.classList.toggle('active', t.dataset.source === mode));
+  document.querySelectorAll('.source-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + mode).classList.add('active');
+
+  sourceReady = false;
+  if (mode === 'webcam' && webcamStream) {
+    sourceReady = true;
+    startAnimLoop();
+  } else if (mode === 'image' && sourceImage) {
+    sourceReady = true;
+    stopAnimLoop();
+    scheduleRender();
+  } else if (mode === 'video' && sourceVideo) {
+    sourceReady = true;
+    sourceVideo.play();
+    startAnimLoop();
+  } else {
+    stopAnimLoop();
+  }
+}
+
+async function toggleWebcam() {
+  if (webcamStream) {
+    stopWebcam();
+    return;
+  }
+  try {
+    let deviceId = document.getElementById('webcam-device').value || undefined;
+    let constraints = { video: deviceId ? { deviceId: { exact: deviceId } } : true, audio: false };
+    let stream = await navigator.mediaDevices.getUserMedia(constraints);
+    webcamStream = stream;
+    webcamVideo = document.createElement('video');
+    webcamVideo.srcObject = stream;
+    webcamVideo.muted = true;
+    webcamVideo.playsInline = true;
+    // Wait for video to actually have frame data before starting render loop
+    await new Promise(resolve => {
+      let check = () => {
+        if (webcamVideo.videoWidth > 0 && webcamVideo.videoHeight > 0) {
+          resolve();
+        } else {
+          requestAnimationFrame(check);
+        }
+      };
+      webcamVideo.addEventListener('loadeddata', check, { once: true });
+      webcamVideo.play().then(check).catch(() => {});
+    });
+
+    sourceReady = true;
+    document.getElementById('webcam-toggle-btn').textContent = 'Stop Webcam';
+    startAnimLoop();
+
+    // Enumerate devices
+    let devices = await navigator.mediaDevices.enumerateDevices();
+    let sel = document.getElementById('webcam-device');
+    let currentVal = sel.value;
+    sel.innerHTML = '';
+    devices.filter(d => d.kind === 'videoinput').forEach(d => {
+      let opt = document.createElement('option');
+      opt.value = d.deviceId;
+      opt.textContent = d.label || `Camera ${sel.options.length + 1}`;
+      sel.appendChild(opt);
+    });
+    if (currentVal) sel.value = currentVal;
+  } catch (e) {
+    document.getElementById('status').textContent = 'Webcam error: ' + e.message;
+  }
+}
+
+function stopWebcam() {
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(t => t.stop());
+    webcamStream = null;
+  }
+  if (webcamVideo) {
+    webcamVideo.srcObject = null;
+    webcamVideo = null;
+  }
+  sourceReady = false;
+  document.getElementById('webcam-toggle-btn').textContent = 'Start Webcam';
+  stopAnimLoop();
+}
+
+function handleImageFile(file) {
+  let reader = new FileReader();
+  reader.onload = function(e) {
+    loadImage(e.target.result, img => {
+      sourceImage = img;
+      sourceReady = true;
+      document.getElementById('image-info').textContent = `${img.width}x${img.height} - ${file.name}`;
+      if (currentSource === 'image') {
+        stopAnimLoop();
+        scheduleRender();
+      }
+    }, () => {
+      document.getElementById('status').textContent = 'Failed to load image.';
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleVideoFile(file) {
+  let url = URL.createObjectURL(file);
+  if (sourceVideo) {
+    sourceVideo.pause();
+    URL.revokeObjectURL(sourceVideo.src);
+  }
+  sourceVideo = document.createElement('video');
+  sourceVideo.src = url;
+  sourceVideo.muted = true;
+  sourceVideo.loop = true;
+  sourceVideo.playsInline = true;
+  sourceVideo.addEventListener('loadedmetadata', () => {
+    document.getElementById('video-controls').style.display = 'flex';
+    document.getElementById('video-seek').max = sourceVideo.duration;
+    sourceReady = true;
+    sourceVideo.play();
+    if (currentSource === 'video') startAnimLoop();
+  });
+}
+
+function toggleVideoPlay() {
+  if (!sourceVideo) return;
+  if (sourceVideo.paused) {
+    sourceVideo.play();
+    document.getElementById('video-play-btn').innerHTML = '&#9646;&#9646;';
+  } else {
+    sourceVideo.pause();
+    document.getElementById('video-play-btn').innerHTML = '&#9654;';
+  }
+}
+
+function setupDragDrop() {
+  ['image-drop', 'video-drop'].forEach(id => {
+    let zone = document.getElementById(id);
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      let file = e.dataTransfer.files[0];
+      if (file) {
+        if (id === 'image-drop') handleImageFile(file);
+        else handleVideoFile(file);
+      }
+    });
+  });
+  document.getElementById('image-file').addEventListener('change', e => {
+    if (e.target.files[0]) handleImageFile(e.target.files[0]);
+  });
+  document.getElementById('video-file').addEventListener('change', e => {
+    if (e.target.files[0]) handleVideoFile(e.target.files[0]);
+  });
+}
+
+// ========================================================
+// RENDERING PIPELINE
+// ========================================================
+
+function startAnimLoop() {
+  if (animLoopActive) return;
+  animLoopActive = true;
+  fpsLastTime = performance.now();
+  fpsFrameCount = 0;
+  loop();
+}
+
+function stopAnimLoop() {
+  animLoopActive = false;
+  noLoop();
+}
+
+function updateRenderDimensions() {
+  renderW = halfRes ? Math.max(32, Math.floor(outWidth / 2)) : outWidth;
+  renderH = halfRes ? Math.max(32, Math.floor(outHeight / 2)) : outHeight;
+  resizeCanvas(outWidth, outHeight);
+}
+
+function scheduleRender() {
+  if (renderTimeout) clearTimeout(renderTimeout);
+  renderTimeout = setTimeout(() => {
+    renderTimeout = null;
+    renderOneFrame();
+  }, 50);
+}
+
+function captureSourceFrame(w, h) {
+  // Snapshot mode — return frozen raw pixels (no copy needed, renderFromPixels handles its own copy when needed)
+  if (currentSource === 'snapshot' && snapshotData) {
+    if (w === snapshotData.w && h === snapshotData.h) {
+      return snapshotData.pixels;
+    }
+    // Dimensions changed — rescale via temp canvas
+    let tmp = document.createElement('canvas');
+    tmp.width = snapshotData.w; tmp.height = snapshotData.h;
+    let tCtx = tmp.getContext('2d');
+    let imgData = tCtx.createImageData(snapshotData.w, snapshotData.h);
+    imgData.data.set(snapshotData.pixels);
+    tCtx.putImageData(imgData, 0, 0);
+    if (!sourceBuffer || sourceBuffer.width !== w || sourceBuffer.height !== h) {
+      sourceBuffer = createGraphics(w, h);
+      sourceBuffer.pixelDensity(1);
+      sourceBuffer.drawingContext.canvas.getContext('2d', { willReadFrequently: true });
+    }
+    sourceBuffer.drawingContext.clearRect(0, 0, w, h);
+    sourceBuffer.drawingContext.drawImage(tmp, 0, 0, w, h);
+    sourceBuffer.loadPixels();
+    return sourceBuffer.pixels;
+  }
+
+  // Playback mode — return recorded frame
+  if (playbackMode && recordedFrames.length > 0) {
+    let frame = recordedFrames[playbackIdx];
+    if (frame && w === frame.w && h === frame.h) {
+      return frame.pixels;
+    }
+    if (frame) {
+      let tmp = document.createElement('canvas');
+      tmp.width = frame.w; tmp.height = frame.h;
+      let tCtx = tmp.getContext('2d');
+      let imgData = tCtx.createImageData(frame.w, frame.h);
+      imgData.data.set(frame.pixels);
+      tCtx.putImageData(imgData, 0, 0);
+      if (!sourceBuffer || sourceBuffer.width !== w || sourceBuffer.height !== h) {
+        sourceBuffer = createGraphics(w, h);
+        sourceBuffer.pixelDensity(1);
+        sourceBuffer.drawingContext.canvas.getContext('2d', { willReadFrequently: true });
+      }
+      sourceBuffer.drawingContext.clearRect(0, 0, w, h);
+      sourceBuffer.drawingContext.drawImage(tmp, 0, 0, w, h);
+      sourceBuffer.loadPixels();
+      return sourceBuffer.pixels;
+    }
+    return null;
+  }
+
+  if (!sourceBuffer || sourceBuffer.width !== w || sourceBuffer.height !== h) {
+    sourceBuffer = createGraphics(w, h);
+    sourceBuffer.pixelDensity(1);
+    sourceBuffer.drawingContext.canvas.getContext('2d', { willReadFrequently: true });
+  }
+  sourceBuffer.background(0);
+
+  let srcW, srcH, srcEl;
+  if (currentSource === 'webcam' && webcamVideo) {
+    srcEl = webcamVideo; srcW = webcamVideo.videoWidth; srcH = webcamVideo.videoHeight;
+  } else if (currentSource === 'image' && sourceImage) {
+    srcEl = sourceImage.canvas || sourceImage.elt || sourceImage; srcW = sourceImage.width; srcH = sourceImage.height;
+  } else if (currentSource === 'video' && sourceVideo) {
+    srcEl = sourceVideo; srcW = sourceVideo.videoWidth; srcH = sourceVideo.videoHeight;
+  } else {
+    return null;
+  }
+  if (!srcW || !srcH) return null;
+
+  let dx = 0, dy = 0, dw = w, dh = h;
+  if (scaleMode === 'fit') {
+    let scale = Math.min(w / srcW, h / srcH);
+    dw = srcW * scale; dh = srcH * scale;
+    dx = (w - dw) / 2; dy = (h - dh) / 2;
+  } else if (scaleMode === 'fill') {
+    let scale = Math.max(w / srcW, h / srcH);
+    dw = srcW * scale; dh = srcH * scale;
+    dx = (w - dw) / 2; dy = (h - dh) / 2;
+  }
+
+  let ctx = sourceBuffer.drawingContext;
+  let mirror = currentSource === 'webcam' && document.getElementById('webcam-mirror').checked;
+  if (mirror) {
+    ctx.save();
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(srcEl, dx, dy, dw, dh);
+    ctx.restore();
+  } else {
+    ctx.drawImage(srcEl, dx, dy, dw, dh);
+  }
+
+  sourceBuffer.loadPixels();
+  return sourceBuffer.pixels;
+}
+
+function renderFromPixels(srcPx, w, h) {
+  // Pre-dither pixelate
+  if (prePixelateEnabled) {
+    let tempPx = getBuffer('prePx', Uint8Array, w * h * 4);
+    tempPx.set(srcPx.subarray ? srcPx.subarray(0, w * h * 4) : srcPx);
+    applyPrePixelate(tempPx, w, h, prePixelateSize);
+    srcPx = tempPx;
+  }
+
+  // Convert to grayscale
+  let gray = sourceToGrayscale(srcPx, w, h);
+
+  // Apply dither
+  let indices = applyDither(gray, w, h);
+
+  // Map to colors using Uint32 packed writes
+  let colors = getOutputColors();
+  loadPixels();
+  let pxArr = pixels;
+  let outW = outWidth, outH = outHeight;
+
+  // Pre-pack colors as ABGR Uint32 (little-endian: byte order is RGBA)
+  let packedColors = new Uint32Array(colors.length);
+  for (let j = 0; j < colors.length; j++) {
+    let c = colors[j];
+    packedColors[j] = (255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0];
+  }
+  let fallback = packedColors[0];
+  let u32 = new Uint32Array(pxArr.buffer);
+
+  if (w === outW && h === outH) {
+    let n = w * h;
+    for (let i = 0; i < n; i++) {
+      u32[i] = packedColors[indices[i]] || fallback;
+    }
+  } else {
+    let scaleX = w / outW, scaleY = h / outH;
+    for (let y = 0; y < outH; y++) {
+      let sy = (y * scaleY) | 0;
+      for (let x = 0; x < outW; x++) {
+        let sx = (x * scaleX) | 0;
+        u32[y * outW + x] = packedColors[indices[sy * w + sx]] || fallback;
+      }
+    }
+  }
+
+  // Apply post effects (on full-res output)
+  applyPostEffects(pxArr, outW, outH);
+
+  updatePixels();
+}
+
+function renderOneFrame() {
+  if (!sourceReady) return;
+
+  let w = renderW, h = renderH;
+
+  // Fast path: playback mode — use stored pixels directly
+  if (playbackMode && recordedFrames.length > 0) {
+    let frame = recordedFrames[playbackIdx];
+    if (frame) {
+      renderFromPixels(frame.pixels, frame.w, frame.h);
+    }
+    return;
+  }
+
+  // Fast path: snapshot mode — use stored pixels directly
+  if (currentSource === 'snapshot' && snapshotData) {
+    renderFromPixels(snapshotData.pixels, snapshotData.w, snapshotData.h);
+    return;
+  }
+
+  let srcPx = captureSourceFrame(w, h);
+  if (!srcPx) return;
+
+  // Store raw frame if recording
+  if (recordingActive) {
+    recordedFrames.push({ pixels: new Uint8Array(srcPx), w, h });
+  }
+
+  renderFromPixels(srcPx, w, h);
+}
+
+function draw() {
+  if (!animLoopActive || !sourceReady) return;
+
+  // Update video seek bar
+  if (currentSource === 'video' && sourceVideo && !sourceVideo.paused) {
+    let vs = _els.videoSeek || document.getElementById('video-seek');
+    if (vs) vs.value = sourceVideo.currentTime;
+    let t = sourceVideo.currentTime;
+    let m = Math.floor(t / 60), s = Math.floor(t % 60);
+    let vt = _els.videoTime || document.getElementById('video-time');
+    if (vt) vt.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  renderOneFrame();
+
+  // FPS counter
+  fpsFrameCount++;
+  let now = performance.now();
+  if (now - fpsLastTime > 500) {
+    currentFps = Math.round(fpsFrameCount / ((now - fpsLastTime) / 1000));
+    fpsFrameCount = 0;
+    fpsLastTime = now;
+    let fpsEl = document.getElementById('fps-counter');
+    if (fpsEl) fpsEl.textContent = currentFps;
+  }
+}
+
+// ========================================================
+// COLOR MODE & PALETTE
+// ========================================================
+
+function hexToRgb(hex) {
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+// (Color presets and palette editor now unified in PALETTE_PRESETS above)
+
+// ========================================================
+// UI HELPERS
+// ========================================================
+
+function stepNumInput(btn, dir) {
+  let input = btn.closest('.num-spin').querySelector('input[type="number"]');
+  if (!input) return;
+  let step = parseFloat(input.step) || 1;
+  let val = parseFloat(input.value) || 0;
+  let min = input.min !== '' ? parseFloat(input.min) : -Infinity;
+  let max = input.max !== '' ? parseFloat(input.max) : Infinity;
+  val += dir === 'up' ? step : -step;
+  if (val < min) val = min;
+  if (val > max) val = max;
+  input.value = val;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function stepSelect(btn, dir) {
+  let wrapper = btn.closest('.select-spin');
+  if (!wrapper) return;
+  let sel = wrapper.querySelector('select');
+  if (!sel) return;
+  let idx = sel.selectedIndex;
+  if (dir === 'up') {
+    idx = idx > 0 ? idx - 1 : sel.options.length - 1;
+  } else {
+    idx = idx < sel.options.length - 1 ? idx + 1 : 0;
+  }
+  sel.selectedIndex = idx;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function wrapAllNumInputs() {
+  let sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  sidebar.querySelectorAll('input[type="number"]').forEach(inp => {
+    if (inp.parentElement.classList.contains('num-spin')) return;
+    let wrapper = document.createElement('span');
+    wrapper.className = 'num-spin';
+    inp.parentNode.insertBefore(wrapper, inp);
+    wrapper.appendChild(inp);
+    let btns = document.createElement('span');
+    btns.className = 'spin-btns';
+    btns.innerHTML = '<button class="spin-btn" onclick="stepNumInput(this,\'up\')" tabindex="-1">&#9650;</button><button class="spin-btn" onclick="stepNumInput(this,\'down\')" tabindex="-1">&#9660;</button>';
+    wrapper.appendChild(btns);
+  });
+}
+
+function wrapAllSelects() {
+  let sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  sidebar.querySelectorAll('select').forEach(sel => {
+    if (sel.parentElement.classList.contains('select-spin')) return;
+    let wrapper = document.createElement('span');
+    wrapper.className = 'select-spin';
+    sel.parentNode.insertBefore(wrapper, sel);
+    wrapper.appendChild(sel);
+    let arrow = document.createElement('span');
+    arrow.className = 'select-arrow';
+    arrow.textContent = '\u25BC';
+    wrapper.appendChild(arrow);
+    let btns = document.createElement('span');
+    btns.className = 'spin-btns';
+    btns.innerHTML = '<button class="spin-btn" onclick="stepSelect(this,\'up\')" tabindex="-1">&#9650;</button><button class="spin-btn" onclick="stepSelect(this,\'down\')" tabindex="-1">&#9660;</button>';
+    wrapper.appendChild(btns);
+  });
+}
+
+function updateAlgoParams() {
+  let algo = currentAlgorithm;
+  document.querySelectorAll('.algo-params').forEach(p => p.style.display = 'none');
+  if (algo === 'threshold') document.getElementById('params-threshold').style.display = '';
+  else if (algo === 'random') document.getElementById('params-random').style.display = '';
+  else if (algo === 'halftone') document.getElementById('params-halftone').style.display = '';
+  else if (ERROR_KERNELS[algo]) document.getElementById('params-error-diffusion').style.display = '';
+}
+
+function syncSliderLabel(sliderId, labelId, suffix) {
+  let slider = document.getElementById(sliderId);
+  let label = document.getElementById(labelId);
+  if (slider && label) label.textContent = slider.value + (suffix || '');
+}
+
+// ========================================================
+// RANDOMIZE
+// ========================================================
+
+function activeRandomize() {
+  randomize();
+}
+
+function sparkleRandomize(btn, fn) {
+  let colors = ['#00ff88', '#00e5ff', '#a855f7', '#ffee55', '#ff66aa', '#88ffcc', '#55aaff'];
+  let stars = ['\u2726', '\u2727', '\u2734', '\u22C6', '\u2736', '\u00B7', '\u2738', '\u22B9'];
+  let count = 22 + Math.floor(Math.random() * 10);
+  for (let i = 0; i < count; i++) {
+    let spark = document.createElement('span');
+    spark.className = 'sparkle';
+    spark.textContent = stars[Math.floor(Math.random() * stars.length)];
+    let startX = 5 + Math.random() * 90;
+    let startY = 10 + Math.random() * 80;
+    let driftX = (Math.random() - 0.5) * 40;
+    let driftY = (Math.random() - 0.5) * 30;
+    let rot = (Math.random() - 0.5) * 360;
+    let peakScale = 0.6 + Math.random() * 1.0;
+    let dur = 0.3 + Math.random() * 0.45;
+    let size = i < 5 ? (0.65 + Math.random() * 0.7) : (0.35 + Math.random() * 0.4);
+
+    spark.style.left = startX + '%';
+    spark.style.top = startY + '%';
+    spark.style.color = colors[Math.floor(Math.random() * colors.length)];
+    spark.style.fontSize = size + 'em';
+    spark.style.opacity = (0.65 + Math.random() * 0.35);
+    spark.style.animationDelay = (Math.random() * 0.25) + 's';
+
+    let name = 'sparkle_' + Math.random().toString(36).slice(2, 8);
+    let keyframes = `@keyframes ${name} {
+      0% { transform: translate(-50%,-50%) translate(0,0) scale(0) rotate(0deg); }
+      40% { transform: translate(-50%,-50%) translate(${driftX*0.4}px,${driftY*0.4}px) scale(${peakScale}) rotate(${rot*0.5}deg); }
+      100% { transform: translate(-50%,-50%) translate(${driftX}px,${driftY}px) scale(0) rotate(${rot}deg); opacity: 0; }
+    }`;
+    let style = document.createElement('style');
+    style.textContent = keyframes;
+    document.head.appendChild(style);
+    spark.style.animation = `${name} ${dur}s ease-out forwards`;
+
+    btn.appendChild(spark);
+    spark.addEventListener('animationend', () => { spark.remove(); style.remove(); });
+  }
+  btn.classList.remove('flash'); void btn.offsetWidth; btn.classList.add('flash');
+  btn.addEventListener('animationend', () => btn.classList.remove('flash'), { once: true });
+  let lbl = btn.querySelector('.btn-label');
+  if (lbl) { lbl.classList.remove('pop'); void lbl.offsetWidth; lbl.classList.add('pop'); }
+  fn();
+}
+
+function randomizeBtnDown(btn) { btn._pressed = true; btn.classList.add('pressed'); }
+function randomizeBtnUp(btn) {
+  if (!btn._pressed) return;
+  btn._pressed = false;
+  btn.classList.remove('pressed');
+  sparkleRandomize(btn, activeRandomize);
+}
+function randomizeBtnCancel(btn) { btn._pressed = false; btn.classList.remove('pressed'); }
+
+function randomize() {
+  let pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  if (document.getElementById('rand-algo').checked) {
+    let algos = ['threshold','random','bayer2','bayer4','bayer8','bayer16','floyd-steinberg','jarvis','stucki','atkinson','burkes','sierra3','sierra2','sierra-lite','blue-noise','halftone'];
+    currentAlgorithm = pick(algos);
+    document.getElementById('algo-select').value = currentAlgorithm;
+    updateAlgoParams();
+
+    thresholdVal = 64 + Math.floor(Math.random() * 128);
+    document.getElementById('threshold-slider').value = thresholdVal;
+    document.getElementById('threshold-val').textContent = thresholdVal;
+
+    randomAmount = 64 + Math.floor(Math.random() * 192);
+    document.getElementById('random-amount').value = randomAmount;
+    document.getElementById('random-amount-val').textContent = randomAmount;
+
+    halftoneSize = 3 + Math.floor(Math.random() * 14);
+    document.getElementById('halftone-size').value = halftoneSize;
+    document.getElementById('halftone-size-val').textContent = halftoneSize;
+    halftoneAngle = Math.floor(Math.random() * 180);
+    document.getElementById('halftone-angle').value = halftoneAngle;
+    document.getElementById('halftone-angle-val').textContent = halftoneAngle + '\u00B0';
+
+    serpentine = Math.random() > 0.3;
+    document.getElementById('serpentine').checked = serpentine;
+    diffusionStrength = 0.5 + Math.random() * 0.5;
+    document.getElementById('diffusion-strength').value = Math.round(diffusionStrength * 100);
+    document.getElementById('diffusion-strength-val').textContent = Math.round(diffusionStrength * 100) + '%';
+
+    prePixelateEnabled = Math.random() > 0.7;
+    document.getElementById('pre-pixelate-enable').checked = prePixelateEnabled;
+    document.getElementById('pre-pixelate-params').style.display = prePixelateEnabled ? '' : 'none';
+    prePixelateSize = pick([2, 4, 6, 8, 12, 16]);
+    document.getElementById('pre-pixelate-size').value = prePixelateSize;
+    document.getElementById('pre-pixelate-size-val').textContent = prePixelateSize + 'px';
+  }
+
+  if (document.getElementById('rand-color').checked) {
+    let modes = ['bw', 'bw', 'custom2', 'palette', 'ramp'];
+    colorMode = pick(modes);
+    markColorsDirty();
+    document.getElementById('color-mode-select').value = colorMode;
+    updateColorModeUI();
+
+    if (colorMode === 'custom2') {
+      fgColor = [Math.floor(Math.random() * 80), Math.floor(Math.random() * 80), Math.floor(Math.random() * 80)];
+      bgColor = [175 + Math.floor(Math.random() * 80), 175 + Math.floor(Math.random() * 80), 175 + Math.floor(Math.random() * 80)];
+      document.getElementById('color-fg').value = rgbToHex(...fgColor);
+      document.getElementById('color-bg').value = rgbToHex(...bgColor);
+    } else if (colorMode === 'palette') {
+      let presets = Object.keys(PALETTE_PRESETS);
+      loadPalettePreset(pick(presets));
+      document.getElementById('palette-preset-select').value = currentPalettePreset;
+    }
+  }
+
+  if (document.getElementById('rand-effects').checked) {
+    let fx;
+    fx = getFx('bloom');
+    fx.enabled = Math.random() > 0.6;
+    fx.threshold = 100 + Math.floor(Math.random() * 155);
+    fx.radius = 2 + Math.floor(Math.random() * 14);
+    fx.intensity = 0.2 + Math.random() * 0.6;
+
+    fx = getFx('scanlines');
+    fx.enabled = Math.random() > 0.6;
+    fx.spacing = 2 + Math.floor(Math.random() * 6);
+    fx.thickness = 1 + Math.floor(Math.random() * 3);
+    fx.opacity = 0.2 + Math.random() * 0.6;
+
+    fx = getFx('tvlines');
+    fx.enabled = Math.random() > 0.7;
+    fx.spacing = 1 + Math.floor(Math.random() * 5);
+    fx.bleed = 0.3 + Math.random() * 0.5;
+
+    fx = getFx('glitch');
+    fx.enabled = Math.random() > 0.7;
+    fx.intensity = 0.1 + Math.random() * 0.5;
+    fx.frequency = 0.1 + Math.random() * 0.4;
+    fx.separation = Math.floor(Math.random() * 15);
+
+    fx = getFx('chroma');
+    fx.enabled = Math.random() > 0.7;
+    fx.offset = 1 + Math.floor(Math.random() * 10);
+    fx.angle = Math.floor(Math.random() * 360);
+
+    fx = getFx('vignette');
+    fx.enabled = Math.random() > 0.5;
+    fx.radius = 0.4 + Math.random() * 0.4;
+    fx.softness = 0.3 + Math.random() * 0.5;
+
+    fx = getFx('noise');
+    fx.enabled = Math.random() > 0.6;
+    fx.amount = 0.05 + Math.random() * 0.3;
+    fx.mono = Math.random() > 0.3;
+
+    fx = getFx('pixelate');
+    fx.enabled = Math.random() > 0.85;
+    fx.size = pick([2, 4, 6, 8]);
+
+    // Also randomize stack order
+    for (let i = fxStack.length - 1; i > 0; i--) {
+      let j = Math.floor(Math.random() * (i + 1));
+      [fxStack[i], fxStack[j]] = [fxStack[j], fxStack[i]];
+    }
+
+    renderFxStackUI();
+  }
+
+  scheduleRender();
+}
+
+function syncAllFxUI() {
+  renderFxStackUI();
+}
+
+function updateColorModeUI() {
+  document.getElementById('color-custom2').style.display = colorMode === 'custom2' ? '' : 'none';
+  document.getElementById('color-palette').style.display = colorMode === 'palette' ? '' : 'none';
+  if (colorMode === 'palette') {
+    renderPaletteStopEditor();
+  }
+}
+
+// ========================================================
+// BUILT-IN PRESETS
+// ========================================================
+
+const BUILTIN_PRESETS = {
+  crt: {
+    algorithm: 'bayer4', colorMode: 'bw',
+    fx: { bloom: { enabled: true, threshold: 140, radius: 8, intensity: 0.4 },
+          scanlines: { enabled: true, spacing: 3, thickness: 1, opacity: 0.5 },
+          tvlines: { enabled: true, spacing: 2, bleed: 0.5 },
+          vignette: { enabled: true, radius: 0.6, softness: 0.5 },
+          noise: { enabled: true, amount: 0.08, mono: true } }
+  },
+  newspaper: {
+    algorithm: 'halftone', colorMode: 'bw',
+    halftoneSize: 6, halftoneAngle: 45,
+    fx: {}
+  },
+  gameboy: {
+    algorithm: 'bayer4', colorMode: 'palette',
+    palettePreset: 'gameboy',
+    fx: {}
+  },
+  glitch: {
+    algorithm: 'floyd-steinberg', colorMode: 'bw',
+    fx: { glitch: { enabled: true, intensity: 0.5, frequency: 0.3, separation: 10 },
+          chroma: { enabled: true, offset: 6, angle: 0 },
+          scanlines: { enabled: true, spacing: 4, thickness: 1, opacity: 0.3 } }
+  },
+  clean1bit: {
+    algorithm: 'floyd-steinberg', colorMode: 'bw',
+    serpentine: true, diffusionStrength: 1.0,
+    fx: {}
+  },
+  vintage: {
+    algorithm: 'atkinson', colorMode: 'custom2',
+    fgColor: [40, 25, 15], bgColor: [220, 195, 160],
+    fx: { vignette: { enabled: true, radius: 0.5, softness: 0.6 },
+          noise: { enabled: true, amount: 0.15, mono: false } }
+  },
+  thermal: {
+    algorithm: 'bayer8', colorMode: 'palette',
+    palettePreset: 'thermal',
+    fx: { bloom: { enabled: true, threshold: 150, radius: 10, intensity: 0.3 } }
+  },
+  blueprint: {
+    algorithm: 'floyd-steinberg', colorMode: 'custom2',
+    fgColor: [180, 210, 240], bgColor: [20, 40, 80],
+    fx: { noise: { enabled: true, amount: 0.1, mono: true } }
+  }
+};
+
+function loadBuiltinPreset(name) {
+  let preset = BUILTIN_PRESETS[name];
+  if (!preset) return;
+
+  currentAlgorithm = preset.algorithm;
+  document.getElementById('algo-select').value = currentAlgorithm;
+  updateAlgoParams();
+
+  if (preset.halftoneSize) { halftoneSize = preset.halftoneSize; document.getElementById('halftone-size').value = halftoneSize; document.getElementById('halftone-size-val').textContent = halftoneSize; }
+  if (preset.halftoneAngle !== undefined) { halftoneAngle = preset.halftoneAngle; document.getElementById('halftone-angle').value = halftoneAngle; document.getElementById('halftone-angle-val').textContent = halftoneAngle + '\u00B0'; }
+  if (preset.serpentine !== undefined) { serpentine = preset.serpentine; document.getElementById('serpentine').checked = serpentine; }
+  if (preset.diffusionStrength !== undefined) { diffusionStrength = preset.diffusionStrength; document.getElementById('diffusion-strength').value = Math.round(diffusionStrength * 100); document.getElementById('diffusion-strength-val').textContent = Math.round(diffusionStrength * 100) + '%'; }
+
+  colorMode = preset.colorMode;
+  markColorsDirty();
+  document.getElementById('color-mode-select').value = colorMode;
+  updateColorModeUI();
+
+  if (preset.fgColor) { fgColor = [...preset.fgColor]; markColorsDirty(); document.getElementById('color-fg').value = rgbToHex(...fgColor); }
+  if (preset.bgColor) { bgColor = [...preset.bgColor]; markColorsDirty(); document.getElementById('color-bg').value = rgbToHex(...bgColor); }
+  if (preset.palettePreset) loadPalettePreset(preset.palettePreset);
+
+  // Reset all effects to defaults then apply preset overrides
+  const FX_DEFAULTS = {
+    chroma: { enabled: false, offset: 4, angle: 0 },
+    bloom: { enabled: false, threshold: 128, radius: 6, intensity: 0.5 },
+    tvlines: { enabled: false, spacing: 3, bleed: 0.6 },
+    scanlines: { enabled: false, spacing: 3, thickness: 1, opacity: 0.5 },
+    glitch: { enabled: false, intensity: 0.3, frequency: 0.2, separation: 5 },
+    pixelate: { enabled: false, size: 8 },
+    vignette: { enabled: false, radius: 0.7, softness: 0.5 },
+    noise: { enabled: false, amount: 0.2, mono: true },
+  };
+  fxStack.forEach(fx => {
+    let def = FX_DEFAULTS[fx.id];
+    if (def) Object.assign(fx, { ...def, id: fx.id });
+  });
+
+  let pfx = preset.fx || {};
+  for (let key of Object.keys(pfx)) {
+    let match = getFx(key);
+    if (match) Object.assign(match, pfx[key]);
+  }
+
+  renderFxStackUI();
+  prePixelateEnabled = false;
+  document.getElementById('pre-pixelate-enable').checked = false;
+  document.getElementById('pre-pixelate-params').style.display = 'none';
+
+  scheduleRender();
+  document.getElementById('status').textContent = `Loaded preset: ${name}`;
+}
+
+// ========================================================
+// USER PRESETS
+// ========================================================
+
+const USER_PRESETS_KEY = 'dither_playground_presets';
+
+function captureState() {
+  return {
+    algorithm: currentAlgorithm, thresholdVal, randomAmount,
+    serpentine, diffusionStrength, halftoneSize, halftoneAngle,
+    prePixelateEnabled, prePixelateSize,
+    colorMode, fgColor: [...fgColor], bgColor: [...bgColor],
+    currentPalettePreset,
+    paletteStops: paletteStops.map(s => ({ pos: s.pos, color: [...s.color] })),
+    fxStack: fxStack.map(fx => ({ ...fx })),
+    outWidth, outHeight
+  };
+}
+
+function restoreState(state) {
+  if (!state) return;
+  currentAlgorithm = state.algorithm || 'bayer8';
+  thresholdVal = state.thresholdVal || 128;
+  randomAmount = state.randomAmount || 128;
+  serpentine = state.serpentine !== undefined ? state.serpentine : true;
+  diffusionStrength = state.diffusionStrength || 1.0;
+  halftoneSize = state.halftoneSize || 6;
+  halftoneAngle = state.halftoneAngle || 45;
+  prePixelateEnabled = state.prePixelateEnabled || false;
+  prePixelateSize = state.prePixelateSize || 8;
+  colorMode = state.colorMode || 'bw';
+  fgColor = state.fgColor || [0, 0, 0];
+  bgColor = state.bgColor || [255, 255, 255];
+  if (state.paletteStops) {
+    paletteStops = state.paletteStops.map(s => ({ pos: s.pos, color: [...s.color] }));
+  }
+  currentPalettePreset = state.currentPalettePreset || '';
+  markColorsDirty();
+
+  if (state.fxStack) {
+    fxStack = state.fxStack.map(fx => ({ ...fx }));
+  }
+
+  if (state.outWidth) { outWidth = state.outWidth; document.getElementById('out-width').value = outWidth; }
+  if (state.outHeight) { outHeight = state.outHeight; document.getElementById('out-height').value = outHeight; }
+  updateRenderDimensions();
+
+  // Sync UI
+  document.getElementById('algo-select').value = currentAlgorithm;
+  updateAlgoParams();
+  document.getElementById('threshold-slider').value = thresholdVal;
+  document.getElementById('threshold-val').textContent = thresholdVal;
+  document.getElementById('random-amount').value = randomAmount;
+  document.getElementById('random-amount-val').textContent = randomAmount;
+  document.getElementById('serpentine').checked = serpentine;
+  document.getElementById('diffusion-strength').value = Math.round(diffusionStrength * 100);
+  document.getElementById('diffusion-strength-val').textContent = Math.round(diffusionStrength * 100) + '%';
+  document.getElementById('halftone-size').value = halftoneSize;
+  document.getElementById('halftone-size-val').textContent = halftoneSize;
+  document.getElementById('halftone-angle').value = halftoneAngle;
+  document.getElementById('halftone-angle-val').textContent = halftoneAngle + '\u00B0';
+  document.getElementById('pre-pixelate-enable').checked = prePixelateEnabled;
+  document.getElementById('pre-pixelate-params').style.display = prePixelateEnabled ? '' : 'none';
+  document.getElementById('pre-pixelate-size').value = prePixelateSize;
+  document.getElementById('pre-pixelate-size-val').textContent = prePixelateSize + 'px';
+  document.getElementById('color-mode-select').value = colorMode;
+  updateColorModeUI();
+  document.getElementById('color-fg').value = rgbToHex(...fgColor);
+  document.getElementById('color-bg').value = rgbToHex(...bgColor);
+  let presetSel = document.getElementById('palette-preset-select');
+  if (presetSel) presetSel.value = currentPalettePreset;
+  renderPaletteStopEditor();
+  renderFxStackUI();
+  scheduleRender();
+}
+
+function loadUserPresets() {
+  try { let data = localStorage.getItem(USER_PRESETS_KEY); return data ? JSON.parse(data) : []; }
+  catch (e) { return []; }
+}
+
+function saveUserPresetsToStorage(presets) {
+  localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(presets));
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderUserPresetList() {
+  let container = document.getElementById('user-preset-list');
+  let presets = loadUserPresets();
+  if (presets.length === 0) {
+    container.innerHTML = '<div class="hint">No saved presets yet.</div>';
+    return;
+  }
+  container.innerHTML = presets.map((p, i) => `
+    <div class="user-preset-row" onclick="loadUserPreset(${i})" title="Click to load">
+      <span class="preset-name">${escHtml(p.name)}</span>
+      <button class="preset-del" onclick="event.stopPropagation(); deleteUserPreset(${i})" title="Delete">&times;</button>
+    </div>
+  `).join('');
+}
+
+function saveUserPreset() {
+  let nameInput = document.getElementById('preset-name-input');
+  let name = nameInput.value.trim();
+  if (!name) name = `${currentAlgorithm} ${colorMode}`;
+  let presets = loadUserPresets();
+  presets.push({ name, state: captureState() });
+  saveUserPresetsToStorage(presets);
+  nameInput.value = '';
+  renderUserPresetList();
+}
+
+function loadUserPreset(index) {
+  let presets = loadUserPresets();
+  if (index < 0 || index >= presets.length) return;
+  restoreState(presets[index].state);
+}
+
+function deleteUserPreset(index) {
+  let presets = loadUserPresets();
+  if (index < 0 || index >= presets.length) return;
+  presets.splice(index, 1);
+  saveUserPresetsToStorage(presets);
+  renderUserPresetList();
+}
+
+function stateToShareString(state) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+}
+
+function shareStringToState(str) {
+  try { return JSON.parse(decodeURIComponent(escape(atob(str.trim())))); }
+  catch (e) { return null; }
+}
+
+function copyPresetString() {
+  let state = captureState();
+  let str = stateToShareString(state);
+  let box = document.getElementById('preset-share-box');
+  box.value = str;
+  box.select();
+  navigator.clipboard.writeText(str).then(() => {
+    document.getElementById('status').textContent = 'Share string copied to clipboard!';
+  }).catch(() => {
+    document.getElementById('status').textContent = 'String ready \u2014 copy it manually from the box.';
+  });
+}
+
+function pastePresetString() {
+  let box = document.getElementById('preset-share-box');
+  let str = box.value.trim();
+  if (!str) { document.getElementById('status').textContent = 'Paste a share string into the box first.'; return; }
+  let state = shareStringToState(str);
+  if (!state) { document.getElementById('status').textContent = 'Invalid share string.'; return; }
+  restoreState(state);
+  document.getElementById('status').textContent = 'Preset loaded from share string!';
+}
+
+// ========================================================
+// RECORDING
+// ========================================================
+
+function toggleRecording() {
+  if (recordingActive) {
+    stopRecording();
+    return;
+  }
+  if (!sourceReady) {
+    document.getElementById('status').textContent = 'No source active — start a source first';
+    return;
+  }
+  // Clear any previous playback
+  playbackMode = false;
+  recordedFrames = [];
+  document.getElementById('playback-controls').style.display = 'none';
+
+  previousSource = currentSource;
+  recordingActive = true;
+  recStartTime = performance.now();
+  document.getElementById('record-btn').classList.add('recording');
+  document.getElementById('record-btn').innerHTML = '<span class="rec-dot"></span> STOP';
+  document.getElementById('rec-timer').style.display = '';
+  document.getElementById('rec-frame-count').style.display = '';
+  updateRecTimer();
+  document.getElementById('status').textContent = 'Recording raw frames...';
+}
+
+function updateRecTimer() {
+  if (!recordingActive) return;
+  let elapsed = (performance.now() - recStartTime) / 1000;
+  let m = Math.floor(elapsed / 60);
+  let s = Math.floor(elapsed % 60);
+  document.getElementById('rec-timer').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+  let mb = (recordedFrames.length * renderW * renderH * 4 / 1024 / 1024).toFixed(0);
+  document.getElementById('rec-frame-count').textContent = `${recordedFrames.length}f / ~${mb}MB`;
+  requestAnimationFrame(updateRecTimer);
+}
+
+function captureRecordingFrame() {
+  if (!recordingActive) return;
+  let srcPx = captureSourceFrame(renderW, renderH);
+  if (srcPx) {
+    recordedFrames.push({ pixels: new Uint8Array(srcPx), w: renderW, h: renderH });
+  }
+}
+
+function stopRecording() {
+  recordingActive = false;
+  document.getElementById('record-btn').classList.remove('recording');
+  document.getElementById('record-btn').innerHTML = '<span class="rec-dot"></span> REC';
+  document.getElementById('rec-timer').style.display = 'none';
+  document.getElementById('rec-frame-count').style.display = 'none';
+
+  if (recordedFrames.length === 0) {
+    document.getElementById('status').textContent = 'No frames captured';
+    return;
+  }
+
+  // Enter playback mode
+  playbackMode = true;
+  playbackIdx = 0;
+  sourceReady = true;
+  stopAnimLoop();
+
+  let seek = document.getElementById('playback-seek');
+  seek.max = recordedFrames.length - 1;
+  seek.value = 0;
+  document.getElementById('playback-info').textContent = `1 / ${recordedFrames.length}`;
+  document.getElementById('playback-controls').style.display = '';
+  document.getElementById('status').textContent = `Captured ${recordedFrames.length} frames — scrub and adjust effects, then export`;
+  scheduleRender();
+}
+
+function playbackStep(dir) {
+  if (!playbackMode || recordedFrames.length === 0) return;
+  playbackIdx = Math.max(0, Math.min(recordedFrames.length - 1, playbackIdx + dir));
+  document.getElementById('playback-seek').value = playbackIdx;
+  document.getElementById('playback-info').textContent = `${playbackIdx + 1} / ${recordedFrames.length}`;
+  scheduleRender();
+}
+
+function playbackSeek(val) {
+  if (!playbackMode) return;
+  playbackIdx = parseInt(val);
+  document.getElementById('playback-info').textContent = `${playbackIdx + 1} / ${recordedFrames.length}`;
+  scheduleRender();
+}
+
+let playbackPlaying = false;
+let playbackAnimId = null;
+
+function togglePlaybackLoop() {
+  if (playbackPlaying) {
+    stopPlaybackLoop();
+  } else {
+    startPlaybackLoop();
+  }
+}
+
+function startPlaybackLoop() {
+  if (!playbackMode || recordedFrames.length === 0) return;
+  playbackPlaying = true;
+  let playBtn = _els.playbackPlayBtn || document.getElementById('playback-play-btn');
+  let seekEl = _els.playbackSeek || document.getElementById('playback-seek');
+  let infoEl = _els.playbackInfo || document.getElementById('playback-info');
+  if (playBtn) playBtn.textContent = '\u23F8';
+  let fps = 30;
+  let startTime = performance.now();
+  let startFrame = playbackIdx;
+  let totalFrames = recordedFrames.length;
+  let rendering = false;
+  let lastDomUpdate = 0;
+
+  function tick() {
+    if (!playbackPlaying) return;
+    if (!rendering) {
+      let now = performance.now();
+      let elapsed = now - startTime;
+      let targetFrame = (startFrame + Math.floor(elapsed * fps / 1000)) % totalFrames;
+      if (targetFrame !== playbackIdx) {
+        playbackIdx = targetFrame;
+        rendering = true;
+        renderOneFrame();
+        rendering = false;
+        // Throttle DOM updates to every 200ms
+        if (now - lastDomUpdate > 200) {
+          if (seekEl) seekEl.value = playbackIdx;
+          if (infoEl) infoEl.textContent = `${playbackIdx + 1} / ${totalFrames}`;
+          lastDomUpdate = now;
+        }
+      }
+    }
+    playbackAnimId = requestAnimationFrame(tick);
+  }
+  playbackAnimId = requestAnimationFrame(tick);
+}
+
+function stopPlaybackLoop() {
+  playbackPlaying = false;
+  if (playbackAnimId) { cancelAnimationFrame(playbackAnimId); playbackAnimId = null; }
+  let playBtn = _els.playbackPlayBtn || document.getElementById('playback-play-btn');
+  if (playBtn) playBtn.textContent = '\u25B6';
+}
+
+function clearPlayback() {
+  stopPlaybackLoop();
+  playbackMode = false;
+  recordedFrames = [];
+  playbackIdx = 0;
+  document.getElementById('playback-controls').style.display = 'none';
+
+  // Restore the source that was active before recording
+  if (previousSource) {
+    currentSource = previousSource;
+    previousSource = null;
+  }
+  sourceReady = true;
+  if (currentSource === 'webcam' && webcamStream) {
+    startAnimLoop();
+  } else if (currentSource === 'video' && sourceVideo && !sourceVideo.paused) {
+    startAnimLoop();
+  } else {
+    scheduleRender();
+  }
+  document.getElementById('status').textContent = '';
+}
+
+let previousSource = null;
+
+function takeSnapshot() {
+  // Toggle off — unfreeze
+  if (currentSource === 'snapshot') {
+    snapshotData = null;
+    currentSource = previousSource || 'webcam';
+    previousSource = null;
+    document.getElementById('snapshot-btn').classList.remove('active');
+    if (currentSource === 'webcam' || (currentSource === 'video' && sourceVideo && !sourceVideo.paused)) {
+      startAnimLoop();
+    }
+    scheduleRender();
+    document.getElementById('status').textContent = '';
+    return;
+  }
+
+  // Toggle on — freeze
+  if (playbackMode && recordedFrames.length > 0) {
+    let frame = recordedFrames[playbackIdx];
+    snapshotData = { pixels: new Uint8Array(frame.pixels), w: frame.w, h: frame.h };
+  } else {
+    let srcPx = captureSourceFrame(renderW, renderH);
+    if (!srcPx) {
+      document.getElementById('status').textContent = 'No source to capture';
+      return;
+    }
+    snapshotData = { pixels: new Uint8Array(srcPx), w: renderW, h: renderH };
+  }
+  previousSource = currentSource;
+  currentSource = 'snapshot';
+  sourceReady = true;
+  stopPlaybackLoop();
+  playbackMode = false;
+  document.getElementById('playback-controls').style.display = 'none';
+  document.getElementById('snapshot-btn').classList.add('active');
+  stopAnimLoop();
+  scheduleRender();
+  document.getElementById('status').textContent = 'Frozen — adjust effects, press Snap to unfreeze';
+}
+
+// ========================================================
+// EXPORT
+// ========================================================
+
+function randomExportName() {
+  let adj = ['dithered','pixelated','halftone','noisy','glitched','retro','crt','scanlined','grainy','static'];
+  let noun = ['signal','frame','capture','snapshot','raster','bitmap','pattern','screen','broadcast','feed'];
+  let pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  return `${pick(adj)}_${pick(noun)}_${Date.now().toString(36)}`;
+}
+
+function exportPNG() { saveCanvas(randomExportName(), 'png'); }
+
+function cancelExport() { exportCancelFlag = true; }
+
+function renderExportFrameSequence(onFrame, onDone, onProgress) {
+  let frames;
+  let usePlayback = playbackMode && recordedFrames.length > 0;
+  if (usePlayback) {
+    frames = recordedFrames.length;
+  } else {
+    frames = parseInt(document.getElementById('export-frames').value) || 60;
+  }
+  let idx = 0;
+  let savedIdx = playbackIdx;
+  exportCancelFlag = false;
+
+  function next() {
+    if (exportCancelFlag || idx >= frames) {
+      if (usePlayback) playbackIdx = savedIdx;
+      onDone();
+      return;
+    }
+    if (usePlayback) {
+      playbackIdx = idx;
+    }
+    renderOneFrame();
+    let cnv = document.querySelector('#canvas-container canvas');
+    onFrame(idx, cnv);
+    if (onProgress) onProgress(idx, frames);
+    idx++;
+    requestAnimationFrame(next);
+  }
+  next();
+}
+
+function exportGIF() {
+  let frames = parseInt(document.getElementById('export-frames').value) || 60;
+  let fps = parseInt(document.getElementById('export-fps').value) || 30;
+  let delay = Math.round(1000 / fps);
+  let prog = document.getElementById('export-progress');
+  document.getElementById('export-cancel-btn').style.display = '';
+
+  prog.innerHTML = `Preparing GIF (${frames} frames)...<progress value="0" max="${frames}"></progress>`;
+
+  if (!gifWorkerUrl) {
+    prog.innerHTML = 'Error: GIF worker not loaded yet. Please try again in a moment.';
+    document.getElementById('export-cancel-btn').style.display = 'none';
+    return;
+  }
+
+  let gif = new GIF({
+    workers: 4, quality: 10,
+    width: outWidth, height: outHeight,
+    workerScript: gifWorkerUrl
+  });
+
+  gif.on('progress', p => {
+    prog.innerHTML = `Encoding GIF... ${Math.round(p*100)}%<progress value="${Math.round(p*100)}" max="100"></progress>`;
+  });
+  gif.on('finished', blob => {
+    document.getElementById('export-cancel-btn').style.display = 'none';
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url; a.download = randomExportName() + '.gif'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    prog.innerHTML = `GIF exported! (${(blob.size / 1024 / 1024).toFixed(1)} MB)`;
+  });
+  gif.on('abort', () => {
+    document.getElementById('export-cancel-btn').style.display = 'none';
+    prog.innerHTML = 'GIF export aborted.';
+  });
+
+  let framesAdded = 0;
+  renderExportFrameSequence(
+    (idx, cvs) => {
+      let ctx = cvs.getContext('2d');
+      let imgData = ctx.getImageData(0, 0, cvs.width, cvs.height);
+      gif.addFrame(imgData, { delay });
+      framesAdded++;
+    },
+    () => {
+      if (exportCancelFlag || framesAdded === 0) {
+        document.getElementById('export-cancel-btn').style.display = 'none';
+        prog.innerHTML = framesAdded === 0 ? 'GIF export cancelled (no frames).' : 'GIF export cancelled.';
+        return;
+      }
+      prog.innerHTML = 'Encoding GIF...<progress></progress>';
+      gif.render();
+    },
+    (idx, total) => {
+      prog.innerHTML = `Rendering frame ${idx+1}/${total}...<progress value="${idx+1}" max="${total}"></progress>`;
+    }
+  );
+}
+
+// ========================================================
+// MP4 EXPORT (via WebCodecs VideoEncoder + manual MP4 mux)
+// ========================================================
+
+function muxMP4(encodedChunks, width, height, fps) {
+  let sps = null, pps = null;
+
+  function parseNALUs(data) {
+    let nalus = [];
+    let i = 0;
+    while (i < data.length - 3) {
+      if (data[i] === 0 && data[i+1] === 0 && data[i+2] === 1) {
+        let start = i + 3;
+        let end = data.length;
+        for (let j = start + 1; j < data.length - 2; j++) {
+          if (data[j] === 0 && data[j+1] === 0 && (data[j+2] === 1 || (data[j+2] === 0 && j + 3 < data.length && data[j+3] === 1))) {
+            end = j; break;
+          }
+        }
+        nalus.push(data.slice(start, end));
+        i = end;
+      } else if (data[i] === 0 && data[i+1] === 0 && data[i+2] === 0 && i + 3 < data.length && data[i+3] === 1) {
+        let start = i + 4;
+        let end = data.length;
+        for (let j = start + 1; j < data.length - 2; j++) {
+          if (data[j] === 0 && data[j+1] === 0 && (data[j+2] === 1 || (data[j+2] === 0 && j + 3 < data.length && data[j+3] === 1))) {
+            end = j; break;
+          }
+        }
+        nalus.push(data.slice(start, end));
+        i = end;
+      } else { i++; }
+    }
+    return nalus;
+  }
+
+  let frameSamples = [];
+  for (let chunk of encodedChunks) {
+    let buf = new Uint8Array(chunk.data);
+    let nalus = parseNALUs(buf);
+    let frameNalus = [];
+    for (let nalu of nalus) {
+      let type = nalu[0] & 0x1F;
+      if (type === 7) sps = nalu;
+      else if (type === 8) pps = nalu;
+      else frameNalus.push(nalu);
+    }
+    if (frameNalus.length > 0) {
+      let totalLen = 0;
+      for (let n of frameNalus) totalLen += 4 + n.length;
+      let avcc = new Uint8Array(totalLen);
+      let off = 0;
+      for (let n of frameNalus) {
+        avcc[off] = (n.length >> 24) & 0xFF;
+        avcc[off+1] = (n.length >> 16) & 0xFF;
+        avcc[off+2] = (n.length >> 8) & 0xFF;
+        avcc[off+3] = n.length & 0xFF;
+        avcc.set(n, off + 4);
+        off += 4 + n.length;
+      }
+      frameSamples.push({ data: avcc, isKey: chunk.type === 'key' });
+    }
+  }
+
+  if (!sps || !pps) throw new Error('No SPS/PPS found in encoded data');
+
+  function u32(val) { return [(val >> 24) & 0xFF, (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF]; }
+  function u16(val) { return [(val >> 8) & 0xFF, val & 0xFF]; }
+
+  function box(type, ...contents) {
+    let payload = [];
+    for (let c of contents) {
+      if (c instanceof Uint8Array) payload.push(...c);
+      else if (Array.isArray(c)) payload.push(...c);
+      else if (typeof c === 'number') payload.push(c);
+    }
+    let size = 8 + payload.length;
+    return new Uint8Array([...u32(size), type.charCodeAt(0), type.charCodeAt(1), type.charCodeAt(2), type.charCodeAt(3), ...payload]);
+  }
+
+  function fullbox(type, version, flags, ...contents) {
+    let payload = [];
+    for (let c of contents) {
+      if (c instanceof Uint8Array) payload.push(...c);
+      else if (Array.isArray(c)) payload.push(...c);
+    }
+    let size = 12 + payload.length;
+    return new Uint8Array([...u32(size), type.charCodeAt(0), type.charCodeAt(1), type.charCodeAt(2), type.charCodeAt(3), version, (flags >> 16) & 0xFF, (flags >> 8) & 0xFF, flags & 0xFF, ...payload]);
+  }
+
+  let timescale = fps * 100;
+  let frameDuration = 100;
+  let totalDuration = frameSamples.length * frameDuration;
+
+  let avcC_data = [1, sps[1], sps[2], sps[3], 0xFF, 0xE1, ...u16(sps.length), ...sps, 1, ...u16(pps.length), ...pps];
+  let avcCBox = box('avcC', avcC_data);
+
+  let avc1_inner = [...new Uint8Array(6), ...u16(1), ...new Uint8Array(16), ...u16(width), ...u16(height),
+    0x00, 0x48, 0x00, 0x00, 0x00, 0x48, 0x00, 0x00, ...new Uint8Array(4), ...u16(1), ...new Uint8Array(32), ...u16(0x0018), 0xFF, 0xFF];
+  let avc1Box = box('avc1', avc1_inner, avcCBox);
+  let stsd = fullbox('stsd', 0, 0, u32(1), avc1Box);
+
+  let stts = fullbox('stts', 0, 0, u32(1), u32(frameSamples.length), u32(frameDuration));
+
+  let syncSamples = [];
+  frameSamples.forEach((s, i) => { if (s.isKey) syncSamples.push(i + 1); });
+  let stss_data = [...u32(syncSamples.length)];
+  for (let s of syncSamples) stss_data.push(...u32(s));
+  let stss = fullbox('stss', 0, 0, stss_data);
+
+  let stsz_data = [...u32(0), ...u32(frameSamples.length)];
+  for (let s of frameSamples) stsz_data.push(...u32(s.data.length));
+  let stsz = fullbox('stsz', 0, 0, stsz_data);
+
+  let stsc = fullbox('stsc', 0, 0, u32(1), u32(1), u32(frameSamples.length), u32(1));
+  let stco_placeholder = fullbox('stco', 0, 0, u32(1), u32(0));
+  let stbl = box('stbl', stsd, stts, stss, stsz, stsc, stco_placeholder);
+
+  let vmhd = fullbox('vmhd', 0, 1, u16(0), u16(0), u16(0), u16(0));
+  let dref = fullbox('dref', 0, 0, u32(1), fullbox('url ', 0, 1));
+  let dinf = box('dinf', dref);
+  let minf = box('minf', vmhd, dinf, stbl);
+
+  let mdhd = fullbox('mdhd', 0, 0, u32(0), u32(0), u32(timescale), u32(totalDuration), u16(0x55C4), u16(0));
+  let hdlr = fullbox('hdlr', 0, 0, u32(0), [0x76,0x69,0x64,0x65], ...Array(12).fill(0), [0x56,0x69,0x64,0x65,0x6F,0x00]);
+  let mdia = box('mdia', mdhd, hdlr, minf);
+
+  let tkhd = fullbox('tkhd', 0, 3,
+    u32(0), u32(0), u32(1), u32(0), u32(totalDuration),
+    ...new Uint8Array(8), u16(0), u16(0), u16(0), u16(0),
+    u32(0x00010000), u32(0), u32(0), u32(0), u32(0x00010000), u32(0), u32(0), u32(0), u32(0x40000000),
+    u16(width), u16(0), u16(height), u16(0));
+  let trak = box('trak', tkhd, mdia);
+
+  let mvhd = fullbox('mvhd', 0, 0,
+    u32(0), u32(0), u32(timescale), u32(totalDuration),
+    u32(0x00010000), u16(0x0100), ...new Uint8Array(10),
+    u32(0x00010000), u32(0), u32(0), u32(0), u32(0x00010000), u32(0), u32(0), u32(0), u32(0x40000000),
+    ...new Uint8Array(24), u32(2));
+
+  let moov = box('moov', mvhd, trak);
+
+  let mdatPayloadSize = 0;
+  for (let s of frameSamples) mdatPayloadSize += s.data.length;
+  let mdatHeader = new Uint8Array([...u32(8 + mdatPayloadSize), 0x6D, 0x64, 0x61, 0x74]);
+
+  let ftyp = box('ftyp', [0x69,0x73,0x6F,0x6D], u32(0x200), [0x69,0x73,0x6F,0x6D], [0x69,0x73,0x6F,0x32], [0x61,0x76,0x63,0x31], [0x6D,0x70,0x34,0x31]);
+
+  let mdatOffset = ftyp.length + moov.length;
+  let stcoChunkOffset = mdatOffset + 8;
+
+  let moovBytes = new Uint8Array(moov);
+  for (let i = 0; i < moovBytes.length - 8; i++) {
+    if (moovBytes[i+4] === 0x73 && moovBytes[i+5] === 0x74 && moovBytes[i+6] === 0x63 && moovBytes[i+7] === 0x6F) {
+      let offPos = i + 16;
+      moovBytes[offPos] = (stcoChunkOffset >> 24) & 0xFF;
+      moovBytes[offPos+1] = (stcoChunkOffset >> 16) & 0xFF;
+      moovBytes[offPos+2] = (stcoChunkOffset >> 8) & 0xFF;
+      moovBytes[offPos+3] = stcoChunkOffset & 0xFF;
+      break;
+    }
+  }
+
+  let totalSize = ftyp.length + moovBytes.length + 8 + mdatPayloadSize;
+  let result = new Uint8Array(totalSize);
+  let pos = 0;
+  result.set(ftyp, pos); pos += ftyp.length;
+  result.set(moovBytes, pos); pos += moovBytes.length;
+  result.set(mdatHeader, pos); pos += 8;
+  for (let s of frameSamples) { result.set(s.data, pos); pos += s.data.length; }
+  return result;
+}
+
+function exportMP4() {
+  let frames = parseInt(document.getElementById('export-frames').value) || 60;
+  let fps = parseInt(document.getElementById('export-fps').value) || 30;
+  let prog = document.getElementById('export-progress');
+
+  if (typeof VideoEncoder === 'undefined') {
+    prog.textContent = 'Error: WebCodecs API not supported in this browser. Try Chrome or Edge.';
+    return;
+  }
+
+  let w = outWidth, h = outHeight;
+  let encW = w % 2 === 0 ? w : w + 1;
+  let encH = h % 2 === 0 ? h : h + 1;
+
+  document.getElementById('export-cancel-btn').style.display = '';
+  prog.innerHTML = `Preparing MP4 (${frames} frames)...<progress value="0" max="${frames}"></progress>`;
+
+  let encodedChunks = [];
+
+  let encoder = new VideoEncoder({
+    output: (chunk, meta) => {
+      let buf = new ArrayBuffer(chunk.byteLength);
+      chunk.copyTo(buf);
+      encodedChunks.push({ data: buf, type: chunk.type });
+    },
+    error: (e) => {
+      prog.textContent = `Encoding error: ${e.message}`;
+      document.getElementById('export-cancel-btn').style.display = 'none';
+    }
+  });
+
+  encoder.configure({
+    codec: 'avc1.42001f',
+    width: encW, height: encH,
+    bitrate: 8_000_000,
+    framerate: fps,
+    avc: { format: 'annexb' }
+  });
+
+  let frameDurationMicros = Math.round(1_000_000 / fps);
+
+  renderExportFrameSequence(
+    (idx, cvs) => {
+      let frame = new VideoFrame(cvs, {
+        timestamp: idx * frameDurationMicros,
+        duration: frameDurationMicros
+      });
+      encoder.encode(frame, { keyFrame: idx % (fps * 2 || 1) === 0 });
+      frame.close();
+    },
+    async () => {
+      if (exportCancelFlag) {
+        encoder.close();
+        document.getElementById('export-cancel-btn').style.display = 'none';
+        prog.innerHTML = 'MP4 export cancelled.';
+        return;
+      }
+      prog.innerHTML = 'Encoding final frames...<progress></progress>';
+      await encoder.flush();
+      encoder.close();
+
+      try {
+        let mp4Data = muxMP4(encodedChunks, encW, encH, fps);
+        let blob = new Blob([mp4Data], { type: 'video/mp4' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url; a.download = `${randomExportName()}.mp4`; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        document.getElementById('export-cancel-btn').style.display = 'none';
+        prog.innerHTML = `MP4 exported! (${(blob.size / 1024 / 1024).toFixed(1)} MB)`;
+      } catch (e) {
+        document.getElementById('export-cancel-btn').style.display = 'none';
+        prog.innerHTML = `MP4 mux error: ${e.message}`;
+      }
+    },
+    (idx, total) => {
+      prog.innerHTML = `Rendering frame ${idx+1}/${total}...<progress value="${idx+1}" max="${total}"></progress>`;
+    }
+  );
+}
+
+// ========================================================
+// p5.js SETUP
+// ========================================================
+
+function setup() {
+  pixelDensity(1);
+  let cnv = createCanvas(outWidth, outHeight);
+  cnv.parent('canvas-container');
+  drawingContext.canvas.getContext('2d', { willReadFrequently: true });
+  background(13, 13, 26);
+  noLoop();
+
+  initBayerMatrices();
+  initBlueNoise();
+  setupDragDrop();
+  wrapAllSelects();
+  wrapAllNumInputs();
+  cacheEls();
+  renderPaletteStopEditor();
+  renderUserPresetList();
+
+  // Wire event listeners
+  document.getElementById('algo-select').addEventListener('change', function() {
+    currentAlgorithm = this.value;
+    updateAlgoParams();
+    scheduleRender();
+  });
+
+  document.getElementById('threshold-slider').addEventListener('input', function() {
+    thresholdVal = parseInt(this.value);
+    document.getElementById('threshold-val').textContent = thresholdVal;
+    scheduleRender();
+  });
+
+  document.getElementById('random-amount').addEventListener('input', function() {
+    randomAmount = parseInt(this.value);
+    document.getElementById('random-amount-val').textContent = randomAmount;
+    scheduleRender();
+  });
+
+  document.getElementById('serpentine').addEventListener('change', function() {
+    serpentine = this.checked;
+    scheduleRender();
+  });
+
+  document.getElementById('diffusion-strength').addEventListener('input', function() {
+    diffusionStrength = parseInt(this.value) / 100;
+    document.getElementById('diffusion-strength-val').textContent = this.value + '%';
+    scheduleRender();
+  });
+
+  document.getElementById('halftone-size').addEventListener('input', function() {
+    halftoneSize = parseInt(this.value);
+    document.getElementById('halftone-size-val').textContent = halftoneSize;
+    scheduleRender();
+  });
+
+  document.getElementById('halftone-angle').addEventListener('input', function() {
+    halftoneAngle = parseInt(this.value);
+    document.getElementById('halftone-angle-val').textContent = halftoneAngle + '\u00B0';
+    scheduleRender();
+  });
+
+  document.getElementById('pre-pixelate-enable').addEventListener('change', function() {
+    prePixelateEnabled = this.checked;
+    document.getElementById('pre-pixelate-params').style.display = this.checked ? '' : 'none';
+    scheduleRender();
+  });
+
+  document.getElementById('pre-pixelate-size').addEventListener('input', function() {
+    prePixelateSize = parseInt(this.value);
+    document.getElementById('pre-pixelate-size-val').textContent = prePixelateSize + 'px';
+    scheduleRender();
+  });
+
+  document.getElementById('color-mode-select').addEventListener('change', function() {
+    colorMode = this.value;
+    markColorsDirty();
+    updateColorModeUI();
+    scheduleRender();
+  });
+
+  document.getElementById('color-fg').addEventListener('input', function() {
+    fgColor = hexToRgb(this.value);
+    markColorsDirty();
+    scheduleRender();
+  });
+
+  document.getElementById('color-bg').addEventListener('input', function() {
+    bgColor = hexToRgb(this.value);
+    markColorsDirty();
+    scheduleRender();
+  });
+
+  document.getElementById('palette-preset-select').addEventListener('change', function() {
+    if (this.value) {
+      loadPalettePreset(this.value);
+    }
+  });
+
+  document.getElementById('out-width').addEventListener('change', function() {
+    outWidth = Math.max(64, Math.min(1920, parseInt(this.value) || 640));
+    this.value = outWidth;
+    updateRenderDimensions();
+    scheduleRender();
+  });
+
+  document.getElementById('out-height').addEventListener('change', function() {
+    outHeight = Math.max(64, Math.min(1080, parseInt(this.value) || 480));
+    this.value = outHeight;
+    updateRenderDimensions();
+    scheduleRender();
+  });
+
+  document.getElementById('scale-mode').addEventListener('change', function() {
+    scaleMode = this.value;
+    scheduleRender();
+  });
+
+  document.getElementById('half-res').addEventListener('change', function() {
+    halfRes = this.checked;
+    updateRenderDimensions();
+    scheduleRender();
+  });
+
+  document.getElementById('video-seek').addEventListener('input', function() {
+    if (sourceVideo) sourceVideo.currentTime = parseFloat(this.value);
+  });
+
+  document.getElementById('playback-seek').addEventListener('input', function() {
+    playbackSeek(this.value);
+  });
+
+  // Build dynamic effect stack UI (replaces old static fxSliders)
+  renderFxStackUI();
+
+  // Draw a placeholder message
+  fill(90);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(16);
+  text('Select an input source to begin', outWidth / 2, outHeight / 2);
+}
+
+// ========================================================
+// WINDOW EXPOSE
+// ========================================================
+window.setup = setup;
+window.draw = draw;
+window.switchSource = switchSource;
+window.toggleWebcam = toggleWebcam;
+window.toggleVideoPlay = toggleVideoPlay;
+window.loadPalettePreset = loadPalettePreset;
+window.loadBuiltinPreset = loadBuiltinPreset;
+window.activeRandomize = activeRandomize;
+window.sparkleRandomize = sparkleRandomize;
+window.randomizeBtnDown = randomizeBtnDown;
+window.randomizeBtnUp = randomizeBtnUp;
+window.randomizeBtnCancel = randomizeBtnCancel;
+window.stepNumInput = stepNumInput;
+window.stepSelect = stepSelect;
+window.toggleRecording = toggleRecording;
+window.takeSnapshot = takeSnapshot;
+window.playbackStep = playbackStep;
+window.playbackSeek = playbackSeek;
+window.clearPlayback = clearPlayback;
+window.togglePlaybackLoop = togglePlaybackLoop;
+window.exportPNG = exportPNG;
+window.exportGIF = exportGIF;
+window.exportMP4 = exportMP4;
+window.cancelExport = cancelExport;
+window.saveUserPreset = saveUserPreset;
+window.loadUserPreset = loadUserPreset;
+window.deleteUserPreset = deleteUserPreset;
+window.copyPresetString = copyPresetString;
+window.pastePresetString = pastePresetString;
+window.updatePaletteStop = updatePaletteStop;
+window.addPaletteStop = addPaletteStop;
+window.removePaletteStop = removePaletteStop;
+window.renderFxStackUI = renderFxStackUI;
+window.toggleFxRow = toggleFxRow;
+  </script>
+</body>
+</html>
